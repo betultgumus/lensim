@@ -1,0 +1,17 @@
+node_modules/
+.git/
+.expo/
+dist/
+/android/
+/ios/
+artifacts/
+store/screenshots/
+*.log
+
+*.keystore
+*.jks
+credentials.json
+.env.local
+.env.*.local
+
+/dist-web/

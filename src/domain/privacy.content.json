@@ -1,0 +1,26 @@
+[
+  {
+    "title": "Hangi bilgiler saklanır?",
+    "body": "Lens planı, başlangıç ve değişim tarihleri, görünüm tercihleri ve izin verirsen hatırlatıcı tercihleri cihazında saklanır. Açtığın özelliklere göre stok, solüsyon, lens kabı, lens markası/numarası ve göz günlüğü notları da yerel kayıtlara eklenir."
+  },
+  {
+    "title": "Veriler gönderilir mi?",
+    "body": "Lens Takip hesap oluşturmaz; geliştiriciye veya bir sunucuya lens bilgilerini, sağlık notlarını ya da cihaz tanımlayıcılarını göndermez. Reklam, analitik, uzaktan push bildirimi veya uygulama içi satın alma altyapısı kullanılmaz. Bir destek bağlantısını açarsan tarayıcı veya e-posta hizmetinin kendi gizlilik koşulları geçerli olur."
+  },
+  {
+    "title": "Bildirimler ve widget",
+    "body": "Hatırlatmalar yalnızca izninle cihaz tarafından planlanır. Widget, değişim tarihlerini ve seçtiğin görünüm ayarlarını işletim sistemine aktarır. Günlük notları ve lens numarası widget verilerine dahil edilmez. Stok bilgisi yalnızca ayrıca seçersen widget’ta gösterilir. Widget ve bildirim içeriği ekranına bakabilen kişilerce görülebilir."
+  },
+  {
+    "title": "Saklama, güvenlik ve silme",
+    "body": "Veriler uygulamanın cihaz üzerindeki özel alanında saklanır. Bir özelliği kapatmak kaydını silmez. Günlük notlarını tek tek, bütün kayıtlarını bu ekrandaki silme işlemiyle kaldırabilirsin. Sunucuda yedek bulunmaz. Android uygulama yedeklemesi kapalıdır; iOS ve cihazın diğer yedekleme/aktarım tercihleri işletim sistemi tarafından yönetilir. Uygulamayı kaldırmak yerel kayıtlara erişimini kaybetmene neden olabilir."
+  },
+  {
+    "title": "İzinler",
+    "body": "Yalnızca yerel bildirim izni istenir. Kamera, mikrofon, konum, kişiler ve reklam kimliği erişimi gerekmez. Bildirim iznini reddetmen veya geri alman lens takibini engellemez."
+  },
+  {
+    "title": "Tıbbi açıklama",
+    "body": "Lens Takip bir tıbbi cihaz değildir; herhangi bir hastalığı teşhis etmez, tedavi etmez, iyileştirmez veya önlemez. Lens kullanım süresini ürün talimatına ve göz sağlığı uzmanının önerisine göre belirle. Tıbbi tavsiye, tanı veya tedavi için bir sağlık uzmanına danış."
+  }
+]
