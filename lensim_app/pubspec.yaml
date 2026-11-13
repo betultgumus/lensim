@@ -1,0 +1,36 @@
+name: lensim
+description: Kontakt lens kullanım günlerini sayan, internetsiz çalışan uygulama.
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.5.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_localizations:
+    sdk: flutter
+  sqflite: ^2.4.1
+  path: ^1.9.0
+  flutter_local_notifications: ^19.4.0
+  timezone: ^0.10.0
+  google_fonts: ^6.2.1
+  file_picker: ^10.1.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^5.0.0
+  flutter_launcher_icons: ^0.14.3
+
+flutter:
+  uses-material-design: true
+
+flutter_launcher_icons:
+  android: true
+  ios: false
+  image_path: "assets/icon/icon.png"
+  adaptive_icon_background: "#3E68B8"
+  adaptive_icon_foreground: "assets/icon/foreground.png"
+  min_sdk_android: 21
