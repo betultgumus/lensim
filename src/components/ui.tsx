@@ -50,7 +50,10 @@ export function Row({ title, detail, icon, onPress }: { title: string; detail?: 
   const t = useColors(); return <Pressable accessibilityRole="button" onPress={onPress} style={styles.row}>{icon && <View style={[styles.icon, { backgroundColor: t.soft }]}><Ionicons name={icon} size={21} color={t.accent}/></View>}<View style={{ flex: 1 }}><Copy bold>{title}</Copy>{detail && <Copy muted size={12}>{detail}</Copy>}</View><Ionicons name="chevron-forward" color={t.muted} size={18}/></Pressable>;
 }
 export function Chip({ title, selected = false, onPress }: { title: string; selected?: boolean; onPress: () => void | Promise<unknown> }) {
-  const t = useColors(); return <Pressable accessibilityRole="button" accessibilityState={{ selected }} onPress={() => Promise.resolve().then(onPress).catch(e => Alert.alert('Kaydedilemedi', errorText(e)))} style={{ paddingHorizontal: 16, paddingVertical: 12, minHeight: 48, borderRadius: 6, borderWidth: 1, borderColor: selected ? t.accent : t.border, backgroundColor: selected ? t.soft : t.surface }}><Copy size={14} bold={selected} style={selected ? { color: t.accent } : undefined}>{title}</Copy></Pressable>;
+  const t = useColors(); return <Pressable accessibilityRole="button" accessibilityState={{ selected }} onPress={() => Promise.resolve().then(onPress).catch(e => Alert.alert('Kaydedilemedi', errorText(e)))} style={{ paddingHorizontal: 16, paddingVertical: 12, minHeight: 48, borderRadius: 12, borderWidth: 1, borderColor: selected ? t.accent : t.border, backgroundColor: selected ? t.soft : t.surface }}><Copy size={14} bold={selected} style={selected ? { color: t.accent } : undefined}>{title}</Copy></Pressable>;
+}
+export function SegmentedControl({label,options,selected,onChange}:{label:string;options:Array<{value:string;title:string;icon?:keyof typeof Ionicons.glyphMap;selectedColor?:string;selectedTextColor?:string}>;selected:string;onChange:(value:string)=>void}){
+ const t=useColors();return <View accessibilityLabel={label} style={{flexDirection:'row',gap:4,padding:4,borderRadius:999,borderWidth:1,borderColor:t.border,backgroundColor:t.soft}}>{options.map(option=>{const active=selected===option.value;const color=active?(option.selectedColor??t.accent):'transparent';const textColor=active?(option.selectedTextColor??'#FFFFFF'):t.text;return <Pressable key={option.value} accessibilityRole="button" accessibilityLabel={option.title} accessibilityState={{selected:active}} onPress={()=>onChange(option.value)} style={{flex:1,minWidth:0,minHeight:44,paddingHorizontal:9,paddingVertical:8,borderRadius:999,backgroundColor:color,alignItems:'center',justifyContent:'center',flexDirection:'row',gap:6}}>{option.icon&&<Ionicons name={option.icon} size={17} color={textColor}/>}<Copy size={15} bold={active} style={{color:textColor,textAlign:'center'}}>{option.title}</Copy></Pressable>})}</View>;
 }
 export function Sheet({ visible, title, children, onClose }: React.PropsWithChildren<{ visible: boolean; title: string; onClose: () => void }>) {
   const t = useColors(); return <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
@@ -68,9 +71,9 @@ export function Sheet({ visible, title, children, onClose }: React.PropsWithChil
 }
 export const styles = StyleSheet.create({
   screen: { padding: 24, paddingBottom: 40, gap: 20, width: '100%', maxWidth: 640, alignSelf: 'center', flexGrow: 1 },
-  card: { borderWidth: 1, borderRadius: 8, padding: 18, gap: 16 },
-  button: { minHeight: 64, borderRadius: 6, padding: 16, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10 },
-  field: { borderRadius: 6, borderWidth: 1, padding: 15, fontSize: 17 },
+  card: { borderWidth: 1, borderRadius: 12, padding: 18, gap: 16 },
+  button: { minHeight: 56, borderRadius: 14, padding: 16, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10 },
+  field: { borderRadius: 12, borderWidth: 1, padding: 13, fontSize: 17 },
   row: { flexDirection: 'row', alignItems: 'center', gap: 14, minHeight: 52 },
   icon: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center', borderRadius: 14 },
   back: { flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 44, alignSelf: 'flex-start' },
