@@ -29,7 +29,7 @@ export type Action =
   | { type:'editPackage';id:string;openedOn:string;durationDays:number;withPair?:boolean }
   | { type: 'closePackage'; id: string; date: string }
   | { type: 'checkIn'; id: string; packageId: string; date: string; status: 'worn' | 'notWorn' | 'glasses'; automatic?: boolean }
-  | { type: 'dailyStatus'; id:string; date:string; status:'worn'|'notWorn'|'glasses'; automatic?:boolean }
+  | { type: 'dailyStatus'; id:string; date:string; status:'worn'|'notWorn'|'glasses'; automatic?:boolean; moveOpening?:boolean }
   | { type:'bulkDailyStatus';id:string;dates:string[];status:'worn'|'notWorn'|'glasses' }
   | { type: 'prescriptionRecord'; entry: PrescriptionRecord }
   | { type: 'deletePrescriptionRecord'; id:string }
@@ -71,6 +71,15 @@ function releaseCheckInsOutside(state:AppState,pack:LensPackage){
     if(c.stockUsed&&box)box.lensesRemaining=Math.min(box.lensesTotal,box.lensesRemaining+1);
   }
   state.checkIns=state.checkIns.filter(c=>c.packageId!==pack.id||(c.date>=pack.openedOn&&(pack.closedOn===null||c.date<=pack.closedOn)));
+}
+/** For each eye, the first package opened after a date when nothing of that eye covers the gap. */
+export function packagesOpenedAfter(state:AppState,date:string):LensPackage[]{
+  const result:LensPackage[]=[];
+  for(const eye of ['right','left'] as const){
+    const next=state.packages.filter(p=>p.eye===eye&&p.openedOn>date).sort((a,b)=>a.openedOn.localeCompare(b.openedOn))[0];
+    if(next&&!state.packages.some(p=>p.eye===eye&&p.id!==next.id&&p.openedOn<next.openedOn&&(!p.closedOn||p.closedOn>=date)))result.push(next);
+  }
+  return result;
 }
 /** Re-mirrors existing daily answers from a date onward without changing any answer. */
 function regenerateFrom(state:AppState,from:string,today:string){
@@ -315,7 +324,17 @@ export function transition(previous: AppState, action: Action, today = dateOnly(
       setDailyStatus(state,action.id,action.date,action.status,action.automatic??false,today,action.packageId);
       break;
     }
-    case 'dailyStatus': setDailyStatus(state,action.id,action.date,action.status,action.automatic??false,today);break;
+    case 'dailyStatus': {
+      // "Worn" on a day before the package was opened means the package was really opened that day.
+      if(action.moveOpening&&action.status==='worn'&&!state.packages.some(p=>p.openedOn<=action.date&&(!p.closedOn||action.date<=p.closedOn))){
+        parseDate(action.date);if(!isWithinEntryWindow(action.date,today))throw new Error('Açılış tarihi bugün ile son 30 gün arasında olmalı.');
+        const moved=packagesOpenedAfter(state,action.date);
+        if(!moved.length)throw new Error('Bu tarihten sonra açılmış bir paket yok. Önce yeni paket ekle.');
+        for(const pack of moved)pack.openedOn=action.date;
+        regenerateFrom(state,action.date,today);
+      }
+      setDailyStatus(state,action.id,action.date,action.status,action.automatic??false,today);break;
+    }
     case 'bulkDailyStatus': {
       const dates=[...new Set(action.dates)].sort();if(!dates.length)throw new Error('Önce takvimden en az bir gün seç.');
       for(const date of dates)setDailyStatus(state,`${action.id}-${date}`,date,action.status,false,today);

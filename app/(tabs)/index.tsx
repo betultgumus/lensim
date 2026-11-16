@@ -6,6 +6,7 @@ import { router } from 'expo-router';
 import { Button, Card, Copy, Screen,SegmentedControl } from '../../src/components/ui';
 import { useApp, uid, errorText } from '../../src/state/AppContext';
 import {useHomePager,type HomePage} from '../../src/state/HomePagerContext';
+import { useMarkDay } from '../../src/state/useMarkDay';
 import { addDays, addMonths, durationLabel as durationName, formatDate, getDaysRemaining, packageMascotLevel, parseDate, shortDate } from '../../src/domain/dates';
 import { dayTone, palette } from '../../src/design/dayTone';
 import { type LensPackage } from '../../src/domain/types';
@@ -80,12 +81,12 @@ function CapCount({pack,today}:{pack?:LensPackage;today:string}){
   const monthCount=new Set(state.checkIns.filter(c=>c.status==='worn'&&c.date.slice(0,7)===today.slice(0,7)).map(c=>c.date)).size;
   const count=duration===1?String(monthCount):String(elapsed);const total=duration===1?'/AY':`/${duration}`;
   // The count fills most of the cap: two caps share the card width, so the size follows the screen.
-  const countSize=Math.round(Math.min(96,Math.max(44,Math.min(windowWidth,640)*.155)));
-  return <View pointerEvents="none" accessible accessibilityLabel={`${isRight?'Sağ':'Sol'} göz: ${duration===1?`bu ay ${count} gün`:`${count}. gün, ${duration} günlük`}`} style={{alignItems:'center',justifyContent:'center'}}><Copy bold size={15} style={{color:isRight?'#FFFFFF':colors.ink,letterSpacing:1}}>{isRight?'SAĞ · R':'SOL · L'}</Copy><Copy bold size={countSize} style={{color:isRight?'#FFFFFF':colors.ink,lineHeight:countSize*1.05,fontVariant:['tabular-nums']}}>{count}</Copy><Copy bold size={Math.max(14,Math.round(countSize*.24))} style={{color:isRight?'#D8E8FF':'#2F5A92'}}>{total}</Copy></View>;
+  const capWidth=Math.min(windowWidth-48,592)*.3;const countSize=Math.round(Math.min(96,Math.max(36,capWidth*.56)));
+  return <View pointerEvents="none" accessible accessibilityLabel={`${isRight?'Sağ':'Sol'} göz: ${duration===1?`bu ay ${count} gün`:`${count}. gün, ${duration} günlük`}`} style={{alignItems:'center',justifyContent:'center'}}><Copy bold size={14} style={{color:isRight?'#FFFFFF':colors.ink,lineHeight:16}}>{windowWidth<360?(isRight?'SAĞ·R':'SOL·L'):(isRight?'SAĞ · R':'SOL · L')}</Copy><Copy bold size={countSize} style={{color:isRight?'#FFFFFF':colors.ink,lineHeight:Math.round(countSize*1.02),fontVariant:['tabular-nums']}}>{count}</Copy><Copy bold size={14} style={{color:isRight?'#D8E8FF':'#2F5A92',lineHeight:16}}>{total}</Copy></View>;
 }
 
 export default function Home() {
-  const {state,dispatch,today}=useApp();
+  const {state,dispatch,today}=useApp();const markDay=useMarkDay();
   const {page:activePage,setPage,goToPage,registerPager}=useHomePager();
   const {width:windowWidth}=useWindowDimensions();const pageWidth=Math.min(windowWidth-48,592);
   const pager=useRef<ScrollViewInstance|null>(null);const pagerInitialized=useRef(false);
@@ -109,9 +110,7 @@ export default function Home() {
   const activeToday=active.filter(p=>p.openedOn<=today&&(!p.closedOn||p.closedOn>=today));
   const todayRecord=state.dailyStatuses.find(c=>c.date===today);const markedStatus=todayRecord?.status??null;
   const saveStatus=async(status:'worn'|'notWorn'|'glasses',date=today,automatic=false)=>{
-    try{const applicable=state.packages.filter(p=>p.openedOn<=date&&(!p.closedOn||p.closedOn>=date));
-      if(applicable.length)await dispatch({type:'checkIn',id:uid(),packageId:applicable[0]!.id,date,status,automatic});else await dispatch({type:'dailyStatus',id:uid(),date,status,automatic});
-    }catch(e){Alert.alert('İşlem tamamlanamadı',errorText(e));}
+    try{await markDay(date,status);}catch(e){Alert.alert('İşlem tamamlanamadı',errorText(e));}
   };
   const changeYesterday=async(status:'worn'|'notWorn'|'glasses')=>saveStatus(status,yesterday,false);
   const firstDay=parseDate(month),offset=(firstDay.getDay()+6)%7,gridStart=addDays(month,-offset),calendarDays=Array.from({length:42},(_,i)=>addDays(gridStart,i));
@@ -151,7 +150,7 @@ export default function Home() {
       <View style={{flexDirection:'row',justifyContent:'space-between'}}><Copy size={15} bold style={{color:colors.right}}>Bu ay {monthWear} gün lens</Copy><Copy size={15} bold style={{color:palette.glassesText}}>{monthGlasses} gün gözlük</Copy></View>{openedThisMonth&&<Copy size={14} muted>Bu ay açılan paket · {daysOpen(openedThisMonth.openedOn,today)} gündür açık</Copy>}<View style={{gap:8,borderTopWidth:1,borderColor:'#D6E5F6',paddingTop:10}}><Copy size={16} bold>{formatDate(selectedDay)} · {selectedStatus==='worn'?'Lens taktın':selectedStatus==='glasses'?'Gözlük taktın':selectedStatus==='notWorn'?'Lens takmadın':'Kayıt yok'}{selectedAuto?' (otomatik)':''}</Copy>
       {selectedDay>today?<Copy size={14} muted>Gelecek günler işaretlenemez.</Copy>:!canEditSelected?<Copy size={14} muted>30 günden eski günler yalnızca görüntülenir.</Copy>:<SegmentedControl label="Seçili günü düzelt" selected={selectedAuto?'none':selectedStatus??'none'} onChange={value=>saveSelected(value as 'worn'|'notWorn'|'glasses')} options={[{value:'worn',title:'Taktım',selectedColor:colors.right},{value:'notWorn',title:'Takmadım',selectedColor:colors.left,selectedTextColor:colors.ink},{value:'glasses',title:'Gözlük',icon:'glasses-outline',selectedColor:palette.glasses}]}/>}
       {selectedAuto&&canEditSelected&&<Copy size={14} muted>Bu gün cevapsız kaldığı için otomatik sayıldı. Doğru değilse yukarıdan düzelt.</Copy>}
-      {!selectedApplicable&&selectedDay<=today&&<Copy size={14} muted>Bu gün açık paket yok; yalnızca “Takmadım” veya “Gözlük” seçilebilir.</Copy>}</View>
+      {!selectedApplicable&&selectedDay<=today&&canEditSelected&&<Copy size={14} muted>Bu gün açık paketin yoktu. “Taktım” dersen paketin açılış tarihini bu güne almayı önereceğiz.</Copy>}</View>
       <Button title="Birden çok günü düzenle" secondary icon="calendar-outline" onPress={()=>router.push({pathname:'/days',params:{date:selectedDay}})}/>
      </Card><View style={{minHeight:52,flexDirection:'row',alignItems:'center',justifyContent:'space-between',paddingHorizontal:8}}><View style={{flexDirection:'row',alignItems:'center',gap:5}}><View style={{width:8,height:8,borderRadius:4,backgroundColor:'#AFC8E8'}}/><View style={{width:8,height:8,borderRadius:4,backgroundColor:'#0754C8'}}/><Copy size={14} muted>2 sayfadan 2’si</Copy></View><Pressable accessibilityRole="button" accessibilityLabel="Lens kutusuna kaydır" onPress={()=>goToPage('today')} style={{minHeight:44,paddingHorizontal:14,borderRadius:999,backgroundColor:'#E8F2FF',alignItems:'center',justifyContent:'center',flexDirection:'row',gap:6}}><Ionicons name="arrow-back" size={16} color="#0754C8"/><Copy size={14} bold style={{color:'#0754C8'}}>Lens kutusu</Copy></Pressable></View></View>
     </ScrollView>}

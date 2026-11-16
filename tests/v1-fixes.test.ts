@@ -84,3 +84,13 @@ test('owl level reacts only for 15-day and monthly packages',()=>{
   assert.deepEqual([19,20,30,31].map(d=>packageMascotLevel(30,d)),[1,2,2,3]);
   assert.deepEqual([packageMascotLevel(1,5),packageMascotLevel(90,120),packageMascotLevel(14,30)],[1,1,1]);
 });
+
+test('marking worn before the opening day moves the opening of both eyes to that day',()=>{
+  const today='2026-11-16';
+  let state=transition(defaultState(),{type:'openPackages',ids:['r','l'],newBox:box('b',30),eyes:['right','left'],date:today,pairId:'p'},today);
+  assert.throws(()=>transition(state,{type:'dailyStatus',id:'d',date:'2026-11-15',status:'worn'},today),/açık bir paket/);
+  state=transition(state,{type:'dailyStatus',id:'d',date:'2026-11-15',status:'worn',moveOpening:true},today);
+  assert.deepEqual(state.packages.map(p=>p.openedOn),['2026-11-15','2026-11-15']);
+  assert.equal(state.checkIns.filter(c=>c.date==='2026-11-15'&&c.status==='worn').length,2);
+  assert.doesNotThrow(()=>validateState(JSON.parse(JSON.stringify(state))));
+});
