@@ -1,5 +1,5 @@
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android" android:id="@+id/lens_root" android:layout_width="match_parent" android:layout_height="match_parent" android:orientation="vertical" android:padding="16dp" android:background="#F2EDFF">
-  <TextView android:id="@+id/lens_title" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Lens Takip" android:textSize="12sp" android:textStyle="bold" android:textColor="#7456C3" />
+  <TextView android:id="@+id/lens_title" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Lensim" android:textSize="12sp" android:textStyle="bold" android:textColor="#7456C3" />
   <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:gravity="center_vertical">
     <LinearLayout android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content" android:orientation="vertical">
       <TextView android:id="@+id/lens_value" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Merhaba" android:textSize="32sp" android:textStyle="bold" android:textColor="#28233A" />

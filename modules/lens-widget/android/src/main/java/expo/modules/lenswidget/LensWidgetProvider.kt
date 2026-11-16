@@ -69,14 +69,29 @@ object LensWidgetRenderer {
     val v = RemoteViews(context.packageName, R.layout.lens_widget)
     val settings = state.optJSONObject("settings") ?: JSONObject()
     val modules = state.optJSONObject("modules") ?: JSONObject()
+    val widget = state.optJSONObject("widget")
     val systemDark = context.resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK == Configuration.UI_MODE_NIGHT_YES
     val dark = settings.optString("mode") == "dark" || (settings.optString("mode", "system") == "system" && systemDark)
     val ink = if(dark) "#F4F0FA" else "#28233A"
-    val accent = when(settings.optString("theme")) { "mint" -> "#267257"; "rose" -> "#A14472"; "peach" -> "#A15B31"; "sky" -> "#346CA2"; else -> "#7456C3" }
-    val backdrop = when(settings.optString("theme")) { "mint" -> "#E4F6EC"; "rose" -> "#FBEAF3"; "peach" -> "#FFF0E5"; "sky" -> "#E8F3FF"; else -> "#F2EDFF" }
+    val accent = widget?.optString("color")?.takeIf { it.startsWith("#") } ?: when(settings.optString("theme")) { "mint" -> "#267257"; "rose" -> "#A14472"; "peach" -> "#A15B31"; "sky" -> "#346CA2"; else -> "#7456C3" }
+    val backdrop = widget?.optString("background")?.takeIf { it.startsWith("#") } ?: when(settings.optString("theme")) { "mint" -> "#E4F6EC"; "rose" -> "#FBEAF3"; "peach" -> "#FFF0E5"; "sky" -> "#E8F3FF"; else -> "#F2EDFF" }
     v.setInt(R.id.lens_root, "setBackgroundColor", color(if(dark) "#211C30" else backdrop))
     for(id in listOf(R.id.lens_value,R.id.lens_label,R.id.lens_due,R.id.lens_summary,R.id.lens_stock)) v.setTextColor(id,color(ink))
     v.setTextColor(R.id.lens_title,color(if(dark) "#CDB8FF" else accent))
+    if(widget != null) {
+      v.setTextViewText(R.id.lens_title,widget.optString("title","Lensim"))
+      v.setTextViewText(R.id.lens_value,widget.optString("value","Merhaba"))
+      v.setTextViewText(R.id.lens_label,widget.optString("label","İlk lens paketini ekle"))
+      v.setTextViewText(R.id.lens_due,widget.optString("due","Uygulamayı aç"))
+      val summary=widget.optString("summary","")
+      v.setViewVisibility(R.id.lens_summary,if(wide&&summary.isNotEmpty())View.VISIBLE else View.GONE)
+      if(summary.isNotEmpty())v.setTextViewText(R.id.lens_summary,summary)
+      v.setViewVisibility(R.id.lens_progress,if(wide)View.VISIBLE else View.GONE)
+      v.setProgressBar(R.id.lens_progress,100,(widget.optDouble("progress",0.0)*100).toInt().coerceIn(0,100),false)
+      val spare=widget.optString("stock","")
+      v.setViewVisibility(R.id.lens_stock,if(wide&&spare.isNotEmpty())View.VISIBLE else View.GONE)
+      if(spare.isNotEmpty())v.setTextViewText(R.id.lens_stock,spare)
+    }
     val array = state.optJSONArray("cycles")
     val cycles = mutableListOf<JSONObject>()
     if(array != null) for(i in 0 until array.length()) {
@@ -88,7 +103,7 @@ object LensWidgetRenderer {
     val selected = cycles.firstOrNull { it.optString("profileId") == scope } ?: cycles.firstOrNull()
     val today = LensWidgetDates.today()
     try {
-      if(selected != null) {
+      if(widget == null && selected != null) {
         val text = label(selected,today)
         v.setTextViewText(R.id.lens_value,text.first); v.setTextViewText(R.id.lens_label,text.second)
         val due = selected.getString("due"); val start=selected.getString("start")
@@ -105,7 +120,7 @@ object LensWidgetRenderer {
     val mascot = settings.optString("widgetStyle", "mascot") == "mascot" && settings.optString("mascot", "lumi") != "none"
     v.setViewVisibility(R.id.lens_mascot,if(mascot) View.VISIBLE else View.GONE)
     if(mascot) v.setImageViewBitmap(R.id.lens_mascot,face(settings.optString("mascot", "lumi")))
-    if(wide && modules.optBoolean("stock") && settings.optBoolean("widgetStock")) {
+    if(widget==null&&wide && modules.optBoolean("stock") && settings.optBoolean("widgetStock")) {
       v.setViewVisibility(R.id.lens_stock,View.VISIBLE); v.setTextViewText(R.id.lens_stock,"${state.optJSONObject("stock")?.optInt("pieces") ?: 0} lens stokta")
     }
     val intent = Intent(Intent.ACTION_VIEW,Uri.parse("lenstakip:///")).setPackage(context.packageName).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
@@ -114,12 +129,14 @@ object LensWidgetRenderer {
   }
   private fun face(variant: String): Bitmap {
     val bitmap=Bitmap.createBitmap(144,144,Bitmap.Config.ARGB_8888); val canvas=Canvas(bitmap); val p=Paint(Paint.ANTI_ALIAS_FLAG)
-    val fill=color(when(variant) { "minti" -> "#B9F1D2"; "pufi" -> "#F4C6DE"; else -> "#CFBFFA" })
-    p.shader=RadialGradient(48f,38f,100f,Color.WHITE,fill,Shader.TileMode.CLAMP); canvas.drawOval(8f,12f,136f,132f,p); p.shader=null
-    p.color=color("#44354E"); canvas.drawOval(43f,61f,51f,74f,p); canvas.drawOval(93f,61f,101f,74f,p)
-    p.color=color("#EF9AB2"); p.alpha=100; canvas.drawOval(27f,79f,47f,90f,p); canvas.drawOval(97f,79f,117f,90f,p); p.alpha=255
-    p.color=color("#775473"); p.style=Paint.Style.STROKE; p.strokeWidth=3f; p.strokeCap=Paint.Cap.ROUND
-    val mouth=Path(); mouth.moveTo(62f,87f); mouth.quadTo(72f,100f,83f,87f); canvas.drawPath(mouth,p)
+    p.color=color("#704128"); val head=Path().apply{moveTo(21f,53f);lineTo(13f,14f);lineTo(47f,31f);quadTo(72f,13f,97f,31f);lineTo(131f,14f);lineTo(123f,55f);quadTo(140f,103f,112f,125f);quadTo(72f,148f,32f,125f);quadTo(4f,103f,21f,53f);close()};canvas.drawPath(head,p)
+    p.color=color("#FFF0D8"); canvas.drawOval(25f,34f,119f,126f,p)
+    p.color=Color.WHITE; canvas.drawCircle(48f,74f,23f,p);canvas.drawCircle(96f,74f,23f,p)
+    p.color=color("#61381F");canvas.drawCircle(51f,75f,13f,p);canvas.drawCircle(93f,75f,13f,p)
+    p.color=Color.WHITE;canvas.drawCircle(55f,70f,4f,p);canvas.drawCircle(97f,70f,4f,p)
+    p.color=color("#F2A51A"); val beak=Path().apply{moveTo(72f,84f);lineTo(64f,96f);lineTo(72f,103f);lineTo(80f,96f);close()};canvas.drawPath(beak,p)
+    p.color=color("#B8754E");canvas.drawOval(8f,93f,42f,126f,p);canvas.drawOval(102f,93f,136f,126f,p)
+    p.color=color("#F5D8B6");canvas.drawOval(43f,105f,101f,137f,p)
     return bitmap
   }
 }

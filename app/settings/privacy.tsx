@@ -8,7 +8,7 @@ import release from '../../release.config.json';
 export default function Privacy() {
   const { dispatch }=useApp();
   return <Screen title="Sadece sana ait." subtitle="Gizlilik, en başından." back>
-    <Copy bold>Lens Takip Gizlilik Politikası</Copy><Copy muted size={12}>Son güncelleme: 13 Kasım 2026</Copy>
+    <Copy bold>Lensim Gizlilik Politikası</Copy><Copy muted size={12}>Son güncelleme: 13 Kasım 2026</Copy>
     {privacySections.map(section=><Card key={section.title}><Copy bold>{section.title}</Copy><Copy muted>{section.body}</Copy></Card>)}
     {!!release.publisherName && <Copy>Yayıncı: {release.publisherName}</Copy>}
     {!!release.supportEmail && <Button title="Gizlilik / destek için iletişim" secondary onPress={()=>Linking.openURL(`mailto:${release.supportEmail}`)}/>}

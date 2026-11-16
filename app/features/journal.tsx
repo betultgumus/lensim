@@ -3,11 +3,12 @@ import { Alert, View } from 'react-native';
 import { Button, Card, Chip, Copy, Field, PagedList, Screen, styles } from '../../src/components/ui';
 import { useApp, uid, errorText } from '../../src/state/AppContext';
 import { dateOnly, formatDate } from '../../src/domain/dates';
+import {DateField} from '../../src/components/DateField';
 export default function Journal() {
   const { state,dispatch }=useApp(); const [date,setDate]=useState(dateOnly); const [note,setNote]=useState(''); const [comfort,setComfort]=useState(3); const [symptoms,setSymptoms]=useState<string[]>([]);
   if(!state.modules.journal)return <Screen title="Göz günlüğü kapalı" back><Copy>Özellikler ekranından açabilirsin. Önceki notların korunuyor.</Copy></Screen>;
   return <Screen title="Bugün nasılsın?" subtitle="Sadece sana ait, küçük bir günlük." back>
-    <Field label="Tarih · YYYY-AA-GG" value={date} onChange={setDate}/><Copy bold>Konforunu nasıl tarif edersin?</Copy><Copy size={12} muted>1: Rahatsız hissediyorum · 5: Rahat hissediyorum. Bu bir sağlık puanı değildir.</Copy><View style={styles.wrap}>{[1,2,3,4,5].map(n=><Chip key={n} title={String(n)} selected={comfort===n} onPress={()=>setComfort(n)}/>)}</View>
+    <DateField label="Tarih" value={date} onChange={setDate}/><Copy bold>Konforunu nasıl tarif edersin?</Copy><Copy size={12} muted>1: Rahatsız hissediyorum · 5: Rahat hissediyorum. Bu bir sağlık puanı değildir.</Copy><View style={styles.wrap}>{[1,2,3,4,5].map(n=><Chip key={n} title={String(n)} selected={comfort===n} onPress={()=>setComfort(n)}/>)}</View>
     <Copy bold>Eklemek istediğin bir his var mı?</Copy><View style={styles.wrap}>{['Kuruluk','Kızarıklık','Ağrı','Görme değişikliği'].map(s=><Chip key={s} title={s} selected={symptoms.includes(s)} onPress={()=>setSymptoms(symptoms.includes(s) ? symptoms.filter(x=>x!==s) : [...symptoms,s])}/>)}</View>
     {symptoms.some(s=>['Ağrı','Kızarıklık','Görme değişikliği'].includes(s)) && <Card><Copy>Lensi çıkarıp göz sağlığı uzmanına başvur. Uygulama belirtileri değerlendiremez veya tanı koyamaz.</Copy></Card>}
     <Field label="Kendine bir not (isteğe bağlı)" value={note} onChange={setNote} multiline/>

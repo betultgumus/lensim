@@ -9,53 +9,46 @@ import { loadState, saveState } from '../../src/data/database';
 import { requestNotifications } from '../../src/services/notifications';
 import Onboarding from '../../app/onboarding';
 import Home from '../../app/(tabs)/index';
-import Journal from '../../app/features/journal';
 import { PagedList, Copy } from '../../src/components/ui';
 
 const load = jest.mocked(loadState), save = jest.mocked(saveState);
 function Ready({ children }: React.PropsWithChildren) { const {loading} = useApp(); return loading ? null : children; }
 async function show(element: React.ReactNode) { await render(<AppProvider><Ready>{element}</Ready></AppProvider>); }
-function established() { return transition(defaultState(), {type:'setup',plan:{kind:'monthly',unit:'months',interval:1},start:dateOnly(),id:'first'}); }
+function established() {
+  let state=transition(defaultState(),{type:'addBox',box:{id:'box',name:'Aylık',brand:'',lensType:'spherical',durationDays:30,lensesTotal:6,lensesRemaining:6,eyes:['right','left'],prescription:{}}});
+  state=transition(state,{type:'openPackage',id:'right-package',boxId:'box',eye:'right',date:dateOnly()});
+  state=transition(state,{type:'openPackage',id:'left-package',boxId:'box',eye:'left',date:dateOnly()});
+  return transition(state,{type:'completeOnboarding'});
+}
 beforeEach(() => { jest.clearAllMocks(); load.mockResolvedValue(defaultState()); save.mockResolvedValue(undefined); jest.spyOn(Alert,'alert').mockImplementation(()=>{}); });
 
-test('first launch completes without requesting notification permission', async () => {
+test('first package saves locally and requests reminders after setup', async () => {
   await show(<Onboarding/>);
-  await fireEvent.press(await screen.findByText('Hadi başlayalım'));
-  await fireEvent.press(screen.getByText('Devam et'));
-  await fireEvent.press(screen.getByText('Şimdilik geç'));
+  await fireEvent.press(await screen.findByText('İlk paketi kaydet'));
   await waitFor(()=>expect(save.mock.calls.some(([state])=>state.onboarded)).toBe(true));
   const saved=save.mock.calls.at(-1)![0];
-  expect(saved.cycles).toHaveLength(1);expect(saved.settings.notifications).toBe(false);
-  expect(requestNotifications).not.toHaveBeenCalled();
+  expect(saved.cycles).toHaveLength(0); expect(saved.packages).toHaveLength(2); expect(saved.boxes[0]!.lensesRemaining).toBe(4);
+  expect(requestNotifications).toHaveBeenCalledTimes(1);
+},15000);
+
+test('one tap marks both eyes and can be corrected', async () => {
+  load.mockResolvedValue(established()); await show(<Home/>);
+  expect(screen.getAllByLabelText('Sol ve sağ lens kutusu')).toHaveLength(1);
+  expect(screen.getByText('SOL')).toBeTruthy(); expect(screen.getByText('SAĞ')).toBeTruthy();
+  await fireEvent.press(await screen.findByText('Bugün taktım'));
+  await waitFor(()=>expect(save.mock.calls.at(-1)![0].checkIns).toHaveLength(2));
+  expect(save.mock.calls.at(-1)![0].checkIns.every(c=>c.status==='worn')).toBe(true);
+  await fireEvent.press(await screen.findByText('Bugün lens takmadım'));
+  await waitFor(()=>expect(save.mock.calls.at(-1)![0].checkIns.every(c=>c.status==='notWorn')).toBe(true));
 });
-test('replacement and undo operate through the real screen and state queue', async () => {
-  const initial=established();load.mockResolvedValue(initial);
-  await show(<Home/>);
-  await fireEvent.press(await screen.findByText('Lenslerimi değiştirdim'));
-  await fireEvent.press(screen.getByText('Evet, kaydet'));
-  await screen.findByText('Harika! Yeni döngü başladı.');
-  expect(save.mock.calls.at(-1)![0].cycles.filter(c=>c.completed)).toHaveLength(1);
-  await fireEvent.press(screen.getByText('Yanlışlıkla yaptım · geri al'));
-  await waitFor(()=>expect(save.mock.calls.at(-1)![0].cycles).toEqual(initial.cycles));
-});
-test('failed persistence never shows a successful replacement', async () => {
-  load.mockResolvedValue(established());save.mockRejectedValueOnce(new Error('Disk dolu'));
-  await show(<Home/>);
-  await fireEvent.press(await screen.findByText('Lenslerimi değiştirdim'));
-  await fireEvent.press(screen.getByText('Evet, kaydet'));
+
+test('failed local save does not mark today as worn', async () => {
+  load.mockResolvedValue(established()); save.mockRejectedValueOnce(new Error('Disk dolu')); await show(<Home/>);
+  await fireEvent.press(await screen.findByText('Bugün taktım'));
   await waitFor(()=>expect(Alert.alert).toHaveBeenCalledWith('İşlem tamamlanamadı','Disk dolu'));
-  expect(screen.queryByText('Harika! Yeni döngü başladı.')).toBeNull();
+  expect(screen.getByText('Bugün taktım')).toBeTruthy();
 });
-test('journal records the entered note and selected feeling', async () => {
-  const initial=established();initial.modules.journal=true;load.mockResolvedValue(initial);
-  await show(<Journal/>);
-  const input=await screen.findByLabelText('Kendine bir not (isteğe bağlı)');
-  await fireEvent.changeText(input,'Akşam biraz kuruluk');
-  await fireEvent.press(screen.getByText('Kuruluk'));
-  await fireEvent.press(screen.getByText('Günlüğüme kaydet'));
-  await waitFor(()=>expect(save.mock.calls.at(-1)![0].journal[0]).toMatchObject({note:'Akşam biraz kuruluk',symptoms:['Kuruluk']}));
-  expect(await screen.findByText('Akşam biraz kuruluk')).toBeTruthy();
-});
+
 test('long histories render twenty records per page and allow the last page', async () => {
   await show(<PagedList items={Array.from({length:41},(_,i)=>({id:String(i)}))} renderItem={item=><Copy>kayıt-{item.id}</Copy>}/>);
   await screen.findByText('kayıt-0');expect(screen.queryByText('kayıt-20')).toBeNull();

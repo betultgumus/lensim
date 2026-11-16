@@ -1,4 +1,4 @@
-# Lens Takip
+# Lensim
 
 Türkçe, hesap gerektirmeyen, yerel verilerle çalışan bir iOS / Android lens değişim takipçisi. React Native + Expo SDK 58, Expo Router, SQLite, Reanimated ve gerçek native widget kaynakları içerir.
 

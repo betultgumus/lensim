@@ -6,8 +6,8 @@ import { router } from 'expo-router';
 import { useApp, errorText } from '../state/AppContext';
 import { useTheme } from '../design/theme';
 export function useColors() { return useTheme(useApp().state.settings); }
-export function Copy({ children, size = 15, muted = false, bold = false, style }: React.PropsWithChildren<{ size?: number; muted?: boolean; bold?: boolean; style?: StyleProp<import('react-native').TextStyle> }>) {
-  const t = useColors(); return <Text style={[{ color: muted ? t.muted : t.text, fontSize: size, fontWeight: bold ? '700' : '400', lineHeight: size * 1.45 }, style]}>{children}</Text>;
+export function Copy({ children, size = 17, muted = false, bold = false, mono = false, style }: React.PropsWithChildren<{ size?: number; muted?: boolean; bold?: boolean; mono?: boolean; style?: StyleProp<import('react-native').TextStyle> }>) {
+  const t = useColors(); return <Text style={[{ color: muted ? t.muted : t.text, fontSize: size, fontWeight: bold ? '700' : '400', fontFamily:mono?(bold?'IBMPlexMono_600SemiBold':'IBMPlexMono_400Regular'):(bold?'Archivo_700Bold':'Archivo_400Regular'), lineHeight: size * 1.4 }, style]}>{children}</Text>;
 }
 export function Screen({ children, title, subtitle, back = false }: React.PropsWithChildren<{ title?: string; subtitle?: string; back?: boolean }>) {
   const t = useColors();
@@ -37,11 +37,11 @@ export function Button({ title, onPress, secondary = false, danger = false, disa
   const color = secondary ? (danger ? t.danger : t.accent) : '#FFFFFF';
   const click = async () => { if (inFlight.current || disabled) return; inFlight.current = true; setBusy(true); try { await onPress(); } catch (e) { Alert.alert('İşlem tamamlanamadı', errorText(e)); } finally { inFlight.current = false; setBusy(false); } };
   return <Pressable accessibilityRole="button" accessibilityState={{ disabled: disabled || busy, busy }} disabled={disabled || busy} onPress={click} style={({ pressed }) => [styles.button, { backgroundColor: secondary ? t.soft : danger ? t.danger : (t.dark ? '#7354B6' : t.accent), opacity: disabled ? .4 : pressed ? .75 : 1 }]}>
-    {busy ? <ActivityIndicator color={color}/> : icon ? <Ionicons name={icon} size={20} color={color}/> : null}<Text style={{ color, fontSize: 16, fontWeight: '700', textAlign: 'center' }}>{title}</Text>
+    {busy ? <ActivityIndicator color={color}/> : icon ? <Ionicons name={icon} size={20} color={color}/> : null}<Text style={{ color, fontSize: 17, fontWeight: '700', fontFamily:'Archivo_700Bold', textAlign: 'center' }}>{title}</Text>
   </Pressable>;
 }
 export function Field({ label, value, onChange, placeholder, numeric, multiline }: { label: string; value: string; onChange: (s: string) => void; placeholder?: string; numeric?: boolean; multiline?: boolean }) {
-  const t = useColors(); return <View style={{ gap: 7 }}><Copy size={13} bold>{label}</Copy><TextInput accessibilityLabel={label} value={value} onChangeText={onChange} placeholder={placeholder} placeholderTextColor={t.muted} keyboardType={numeric ? 'number-pad' : 'default'} autoCapitalize="none" multiline={multiline} style={[styles.field, { backgroundColor: t.surface, color: t.text, borderColor: t.border, minHeight: multiline ? 100 : 52 }]}/></View>;
+  const t = useColors(); return <View style={{ gap: 7 }}><Copy size={14} bold>{label}</Copy><TextInput accessibilityLabel={label} value={value} onChangeText={onChange} placeholder={placeholder} placeholderTextColor={t.muted} keyboardType={numeric ? 'number-pad' : 'default'} autoCapitalize="none" multiline={multiline} style={[styles.field, { backgroundColor: t.surface, color: t.text, borderColor: t.border, fontFamily:'Archivo_400Regular', minHeight: multiline ? 100 : 52 }]}/></View>;
 }
 export function Toggle({ title, description, value, onChange }: { title: string; description?: string; value: boolean; onChange: (v: boolean) => void | Promise<unknown> }) {
   const t = useColors(); return <View style={styles.row}><View style={{ flex: 1, gap: 4 }}><Copy bold>{title}</Copy>{description && <Copy size={12} muted>{description}</Copy>}</View><Switch accessibilityLabel={title} value={value} trackColor={{ false: t.border, true: t.accent }} onValueChange={async v => { try { await onChange(v); } catch (e) { Alert.alert('Kaydedilemedi', errorText(e)); } }}/></View>;
@@ -50,7 +50,7 @@ export function Row({ title, detail, icon, onPress }: { title: string; detail?: 
   const t = useColors(); return <Pressable accessibilityRole="button" onPress={onPress} style={styles.row}>{icon && <View style={[styles.icon, { backgroundColor: t.soft }]}><Ionicons name={icon} size={21} color={t.accent}/></View>}<View style={{ flex: 1 }}><Copy bold>{title}</Copy>{detail && <Copy muted size={12}>{detail}</Copy>}</View><Ionicons name="chevron-forward" color={t.muted} size={18}/></Pressable>;
 }
 export function Chip({ title, selected = false, onPress }: { title: string; selected?: boolean; onPress: () => void | Promise<unknown> }) {
-  const t = useColors(); return <Pressable accessibilityRole="button" accessibilityState={{ selected }} onPress={() => Promise.resolve().then(onPress).catch(e => Alert.alert('Kaydedilemedi', errorText(e)))} style={{ paddingHorizontal: 16, paddingVertical: 12, minHeight: 44, borderRadius: 14, borderWidth: 1, borderColor: selected ? t.accent : t.border, backgroundColor: selected ? t.soft : t.surface }}><Copy size={13} bold={selected} style={selected ? { color: t.accent } : undefined}>{title}</Copy></Pressable>;
+  const t = useColors(); return <Pressable accessibilityRole="button" accessibilityState={{ selected }} onPress={() => Promise.resolve().then(onPress).catch(e => Alert.alert('Kaydedilemedi', errorText(e)))} style={{ paddingHorizontal: 16, paddingVertical: 12, minHeight: 48, borderRadius: 6, borderWidth: 1, borderColor: selected ? t.accent : t.border, backgroundColor: selected ? t.soft : t.surface }}><Copy size={14} bold={selected} style={selected ? { color: t.accent } : undefined}>{title}</Copy></Pressable>;
 }
 export function Sheet({ visible, title, children, onClose }: React.PropsWithChildren<{ visible: boolean; title: string; onClose: () => void }>) {
   const t = useColors(); return <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
@@ -68,9 +68,9 @@ export function Sheet({ visible, title, children, onClose }: React.PropsWithChil
 }
 export const styles = StyleSheet.create({
   screen: { padding: 24, paddingBottom: 40, gap: 20, width: '100%', maxWidth: 640, alignSelf: 'center', flexGrow: 1 },
-  card: { borderWidth: 1, borderRadius: 24, padding: 20, gap: 16 },
-  button: { minHeight: 56, borderRadius: 18, padding: 16, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10 },
-  field: { borderRadius: 15, borderWidth: 1, padding: 15, fontSize: 16 },
+  card: { borderWidth: 1, borderRadius: 8, padding: 18, gap: 16 },
+  button: { minHeight: 64, borderRadius: 6, padding: 16, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10 },
+  field: { borderRadius: 6, borderWidth: 1, padding: 15, fontSize: 17 },
   row: { flexDirection: 'row', alignItems: 'center', gap: 14, minHeight: 52 },
   icon: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center', borderRadius: 14 },
   back: { flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 44, alignSelf: 'flex-start' },

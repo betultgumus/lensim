@@ -2,9 +2,9 @@ import type { ExpoConfig } from 'expo/config';
 import release from './release.config.json';
 
 const config: ExpoConfig = {
-  owner: 'nihatkutukoglu', name: 'Lens Takip', slug: 'lens-takip', version: '1.0.0', scheme: 'lenstakip',
+  owner: 'nihatkutukoglu', name: 'Lensim', slug: 'lens-takip', version: '1.0.0', scheme: 'lenstakip',
   platforms: ['ios', 'android', 'web'],
-  web: { bundler: 'metro', output: 'single', name: 'Lens Takip' },
+  web: { bundler: 'metro', output: 'single', name: 'Lensim' },
   orientation: 'portrait', userInterfaceStyle: 'automatic',
   icon: './assets/icon.png',
   ios: { bundleIdentifier: 'com.teknova.lenstakip', supportsTablet: true, buildNumber: '1', privacyManifests: { NSPrivacyTracking: false, NSPrivacyCollectedDataTypes: [], NSPrivacyAccessedAPITypes: [{ NSPrivacyAccessedAPIType: 'NSPrivacyAccessedAPICategoryUserDefaults', NSPrivacyAccessedAPITypeReasons: ['CA92.1', '1C8F.1'] }] }, infoPlist: { ITSAppUsesNonExemptEncryption: false, CFBundleDevelopmentRegion: 'tr' } },
@@ -27,7 +27,7 @@ const config: ExpoConfig = {
       // recalculates from date-only records on day/time changes instead.
       enableAndroid: false,
       widgets: [{
-        name: 'LensCountdown', displayName: 'Lens Takip',
+        name: 'LensCountdown', displayName: 'Lensim',
         description: 'Bir bakışta lens değişim tarihin.',
         ios: { supportedFamilies: ['systemSmall', 'systemMedium'], initialLayout: './widgets/LensCountdown.ios.tsx' },
       }],

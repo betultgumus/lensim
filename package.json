@@ -21,6 +21,8 @@
     "test:web": "node tests/web/smoke.cjs"
   },
   "dependencies": {
+    "@expo-google-fonts/archivo": "^0.4.2",
+    "@expo-google-fonts/ibm-plex-mono": "^0.4.2",
     "@expo/ui": "~58.0.28",
     "@expo/vector-icons": "^15.0.2",
     "@react-navigation/native": "^7.1.0",

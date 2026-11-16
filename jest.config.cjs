@@ -3,5 +3,5 @@ module.exports = {
   resolver: 'react-native-reanimated/jest/resolver',
   testMatch: ['<rootDir>/tests/ui/**/*.test.tsx'],
   setupFilesAfterEnv: ['<rootDir>/tests/ui/setup.cjs'],
-  cacheDirectory: '/tmp/lens-jest-cache',
+  cacheDirectory: '<rootDir>/.jest-cache',
 };

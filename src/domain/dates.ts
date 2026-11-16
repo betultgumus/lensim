@@ -11,8 +11,34 @@ export function parseDate(value: DateOnly): Date {
 export function dateOnly(date: Date = new Date()): DateOnly {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
 }
+/** Formats date digits entered by a user as Turkish day.month.year. */
+export function maskTurkishDateInput(value:string):string {
+  const digits=value.replace(/\D/g,'').slice(0,8);
+  return digits.length<=2?digits:digits.length<=4?`${digits.slice(0,2)}.${digits.slice(2)}`:`${digits.slice(0,2)}.${digits.slice(2,4)}.${digits.slice(4)}`;
+}
+/** Returns an ISO date for a complete valid GG.AA.YYYY value, otherwise null. */
+export function parseTurkishDateInput(value:string):DateOnly|null {
+  if(!/^\d{2}\.\d{2}\.\d{4}$/.test(value))return null;
+  const [day,month,year]=value.split('.');const iso=`${year}-${month}-${day}`;
+  try{parseDate(iso);return iso;}catch{return null;}
+}
+/** The user's tracking day rolls over at 02:00 local time. */
+export function trackingDay(date = new Date(), cutoffHour = 2): DateOnly {
+  const value = new Date(date);
+  if (value.getHours() < cutoffHour) value.setDate(value.getDate() - 1);
+  return dateOnly(value);
+}
 export function addDays(date: DateOnly, amount: number): DateOnly {
   const value = parseDate(date); value.setDate(value.getDate() + amount); return dateOnly(value);
+}
+/** User-entered lens events may be backdated by at most thirty calendar days. */
+export function isWithinEntryWindow(value: DateOnly, today = dateOnly(), maxDaysBack = 30): boolean {
+  parseDate(value); parseDate(today);
+  return value <= today && value >= addDays(today, -maxDaysBack);
+}
+/** Mascot reaction thresholds for the monthly package card; this is a visual alert only. */
+export function monthlyMascotLevel(elapsedDays:number):1|2|3 {
+  return elapsedDays>30?3:elapsedDays>=20?2:1;
 }
 /** Clamp calendar-month addition to the last day of the destination month. */
 export function addMonths(date: DateOnly, amount: number): DateOnly {

@@ -6,6 +6,10 @@ jest.mock('@expo/vector-icons', () => {
   return { Ionicons: ({ name }) => React.createElement(Text, { accessible: false }, name) };
 });
 jest.mock('@react-navigation/native', () => ({ useIsFocused: () => true }));
+jest.mock('expo-notifications', () => ({
+  addNotificationResponseReceivedListener: jest.fn(() => ({ remove: jest.fn() })),
+  getLastNotificationResponseAsync: jest.fn(async () => null),
+}));
 jest.mock('expo-router', () => ({
   router: { push: jest.fn(), replace: jest.fn(), back: jest.fn(), canGoBack: () => false },
   Redirect: () => null,

@@ -1,0 +1,9 @@
+import React,{useEffect,useState} from 'react';
+import {router,useLocalSearchParams} from 'expo-router';
+import {Button,Copy,Field,Screen} from '../../src/components/ui';
+import {useApp} from '../../src/state/AppContext';
+export default function EditBox(){const {id}=useLocalSearchParams<{id:string}>();const {state,dispatch}=useApp();const box=state.boxes.find(b=>b.id===id);const [name,setName]=useState(''),[brand,setBrand]=useState(''),[duration,setDuration]=useState('30'),[total,setTotal]=useState('6'),[remaining,setRemaining]=useState('6');useEffect(()=>{if(box){setName(box.name);setBrand(box.brand);setDuration(String(box.durationDays));setTotal(String(box.lensesTotal));setRemaining(String(box.lensesRemaining));}},[box?.id]);
+ if(!box)return <Screen title="Kutu bulunamadı" back><Copy>Bu lens kutusu kayıtlı değil.</Copy></Screen>;
+ const save=async()=>{await dispatch({type:'editBox',id:box.id,patch:{name,brand,durationDays:Number(duration),lensesTotal:Number(total),lensesRemaining:Number(remaining)}});router.back();};
+ return <Screen title="Lens kutusunu düzenle" subtitle="Açılmış paketlerin önceki süre bilgisi korunur." back><Field label="Kutu adı" value={name} onChange={setName}/><Field label="Marka · isteğe bağlı" value={brand} onChange={setBrand}/><Field label="Lens kullanım süresi · gün" numeric value={duration} onChange={setDuration}/><Field label="Kutudaki toplam lens" numeric value={total} onChange={setTotal}/><Field label="Kutuda kalan lens" numeric value={remaining} onChange={setRemaining}/><Copy size={14} muted>Lens sayısı varsayılan olarak 6’dır; kutundaki gerçek adede göre değiştirebilirsin. Kayıtlı paketlerin açılış tarihi ve sayaçları bu düzenlemeden etkilenmez.</Copy><Button title="Kutu bilgilerini kaydet" icon="save-outline" onPress={save}/></Screen>;
+}

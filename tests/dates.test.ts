@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { addDays, addMonths, dateOnly, getCycleProgress, getDaysRemaining, getLensStatus, getNextReplacementDate, getNotificationDates, parseDate, timeParts } from '../src/domain/dates.ts';
+import { addDays, addMonths, dateOnly, getCycleProgress, getDaysRemaining, getLensStatus, getNextReplacementDate, getNotificationDates, isWithinEntryWindow, maskTurkishDateInput, monthlyMascotLevel, parseDate, parseTurkishDateInput, timeParts } from '../src/domain/dates.ts';
 import type { Cycle, Plan } from '../src/domain/types.ts';
 const monthly: Plan = { kind:'monthly',unit:'months',interval:1 };
 const c: Cycle = { id:'one',profileId:'both',start:'2026-01-31',due:'2026-02-28',completed:null,plan:monthly };
@@ -39,3 +39,20 @@ test('notifications exclude past time and deduplicate offsets',()=>{
   assert.equal(getNotificationDates('2026-11-13',[0],'09:00',new Date(2026,10,13,10)).length,0);
 });
 test('notification hour validation',()=>{for(const value of ['24:00','9:00','12:60','no'])assert.throws(()=>timeParts(value));assert.deepEqual(timeParts('09:30'),[9,30]);});
+test('manual entry window accepts today through exactly thirty days back, not future or older',()=>{
+  assert.equal(isWithinEntryWindow('2026-11-15','2026-11-15'),true);
+  assert.equal(isWithinEntryWindow('2026-10-16','2026-11-15'),true);
+  assert.equal(isWithinEntryWindow('2026-10-15','2026-11-15'),false);
+  assert.equal(isWithinEntryWindow('2026-11-16','2026-11-15'),false);
+});
+test('Turkish date typing inserts separators and rejects impossible dates',()=>{
+  assert.equal(maskTurkishDateInput('29052014'),'29.05.2014');
+  assert.equal(maskTurkishDateInput('16.11.2026'),'16.11.2026');
+  assert.equal(parseTurkishDateInput('29.05.2014'),'2014-05-29');
+  assert.equal(parseTurkishDateInput('31.02.2014'),null);
+  assert.equal(parseTurkishDateInput('16.11.26'),null);
+});
+test('monthly mascot thresholds are exactly 20, 30, and 31 elapsed days',()=>{
+  assert.equal(monthlyMascotLevel(1),1);assert.equal(monthlyMascotLevel(19),1);
+  assert.equal(monthlyMascotLevel(20),2);assert.equal(monthlyMascotLevel(30),2);assert.equal(monthlyMascotLevel(31),3);
+});

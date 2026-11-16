@@ -1,4 +1,4 @@
-# Lens Takip · Mağaza teslimi
+# Lensim · Mağaza teslimi
 
 Bu klasör yayın hazırlığıdır; mağazaya yükleme veya onay yapıldığı anlamına gelmez. Gerçek cihaz testleri, imzalı paket ve yayıncı bilgileri tamamlanmadan yayınlama.
 

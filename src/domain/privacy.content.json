@@ -5,7 +5,7 @@
   },
   {
     "title": "Veriler gönderilir mi?",
-    "body": "Lens Takip hesap oluşturmaz; geliştiriciye veya bir sunucuya lens bilgilerini, sağlık notlarını ya da cihaz tanımlayıcılarını göndermez. Reklam, analitik, uzaktan push bildirimi veya uygulama içi satın alma altyapısı kullanılmaz. Bir destek bağlantısını açarsan tarayıcı veya e-posta hizmetinin kendi gizlilik koşulları geçerli olur."
+    "body": "Lensim hesap oluşturmaz; geliştiriciye veya bir sunucuya lens bilgilerini, sağlık notlarını ya da cihaz tanımlayıcılarını göndermez. Reklam, analitik, uzaktan push bildirimi veya uygulama içi satın alma altyapısı kullanılmaz. Bir destek bağlantısını açarsan tarayıcı veya e-posta hizmetinin kendi gizlilik koşulları geçerli olur."
   },
   {
     "title": "Bildirimler ve widget",
@@ -21,6 +21,6 @@
   },
   {
     "title": "Tıbbi açıklama",
-    "body": "Lens Takip bir tıbbi cihaz değildir; herhangi bir hastalığı teşhis etmez, tedavi etmez, iyileştirmez veya önlemez. Lens kullanım süresini ürün talimatına ve göz sağlığı uzmanının önerisine göre belirle. Tıbbi tavsiye, tanı veya tedavi için bir sağlık uzmanına danış."
+    "body": "Lensim bir tıbbi cihaz değildir; herhangi bir hastalığı teşhis etmez, tedavi etmez, iyileştirmez veya önlemez. Lens kullanım süresini ürün talimatına ve göz sağlığı uzmanının önerisine göre belirle. Tıbbi tavsiye, tanı veya tedavi için bir sağlık uzmanına danış."
   }
 ]

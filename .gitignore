@@ -6,6 +6,7 @@ dist/
 *.log
 .DS_Store
 coverage/
+.jest-cache/
 artifacts/
 *.keystore
 *.jks

@@ -7,7 +7,7 @@ function db(): Promise<IDBDatabase> {
     const request = indexedDB.open('lens-takip-web-preview', 1);
     request.onupgradeneeded = () => request.result.createObjectStore('state');
     request.onerror = () => reject(request.error);
-    request.onblocked = () => reject(new Error('Diğer Lens Takip sekmelerini kapatıp yeniden dene.'));
+    request.onblocked = () => reject(new Error('Diğer Lensim sekmelerini kapatıp yeniden dene.'));
     request.onsuccess = () => resolve(request.result);
   }).catch(error => { database = undefined; throw error; });
   return database;
