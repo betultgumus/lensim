@@ -1,0 +1,17 @@
+node_modules/
+.expo/
+dist/
+/ios/
+/android/
+*.log
+.DS_Store
+coverage/
+.jest-cache/
+artifacts/
+*.keystore
+*.jks
+credentials.json
+.env.local
+.env.*.local
+
+/dist-web/

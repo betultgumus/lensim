@@ -1,0 +1,12 @@
+import React from 'react';
+import { View } from 'react-native';
+import {router} from 'expo-router';
+import {Card,Chip,Copy,Row,Screen,styles} from '../../src/components/ui';
+import {useApp} from '../../src/state/AppContext';
+export default function Settings(){const {state,dispatch}=useApp();return <Screen title="Ayarlar" subtitle="Takip şeklini ve yedeklerini yönet.">
+ <Card style={{borderRadius:6}}><Copy bold>Bir günü cevapsız bırakırsan</Copy><Copy muted size={13}>Ertesi gün 02.00’de seçiminle otomatik tamamlanır.</Copy><View style={styles.wrap}><Chip title="Taktım say" selected={state.settings.defaultAnswer==='worn'} onPress={()=>dispatch({type:'settings',patch:{defaultAnswer:'worn'}})}/><Chip title="Takmadım say" selected={state.settings.defaultAnswer==='notWorn'} onPress={()=>dispatch({type:'settings',patch:{defaultAnswer:'notWorn'}})}/></View></Card>
+ <Card style={{borderRadius:6}}><Copy bold>Takvim görünümü</Copy><Copy size={14} muted>İstersen sağ ve sol paketlerin açılış günlerini takvimde ayrı işaretlerle gör.</Copy><View style={styles.wrap}><Chip title="Birleşik" selected={!state.settings.separateEyeCalendars} onPress={()=>dispatch({type:'settings',patch:{separateEyeCalendars:false}})}/><Chip title="Sağ · Sol ayrı" selected={state.settings.separateEyeCalendars} onPress={()=>dispatch({type:'settings',patch:{separateEyeCalendars:true}})}/></View></Card>
+ <Card style={{borderRadius:6}}><Row title="Göz numaralarım" detail="Lens ve gözlük reçeteleri, tarihçesiyle" icon="glasses-outline" onPress={()=>router.push('/prescriptions')}/><Row title="Lens kutularım" detail="Lens adedini, kutu adını ve süreyi düzenle" icon="albums-outline" onPress={()=>router.push('/settings/boxes')}/><Row title="Veri yedeği" detail="Dosyaya aktar ve geri yükle" icon="cloud-download-outline" onPress={()=>router.push('/settings/backup')}/><Row title="Hatırlatmalar" detail="Günlük onay saati ve paket uyarıları" icon="notifications-outline" onPress={()=>router.push('/settings/notifications')}/><Row title="Görünüm" detail="Açık, koyu veya sistem teması" icon="color-palette-outline" onPress={()=>router.push('/settings/appearance')}/></Card>
+ <Copy size={12} muted>Lensim · Çevrimdışı kullanım desteklenir. Lens süresini kutu talimatına ve göz uzmanının önerisine göre belirle.</Copy>
+ <Row title="Gizlilik ve veriler" detail="Veri kullanımı ve kayıtları silme" icon="shield-checkmark-outline" onPress={()=>router.push('/settings/privacy')}/>
+ </Screen>}
