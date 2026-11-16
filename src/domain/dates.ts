@@ -36,6 +36,21 @@ export function isWithinEntryWindow(value: DateOnly, today = dateOnly(), maxDays
   parseDate(value); parseDate(today);
   return value <= today && value >= addDays(today, -maxDaysBack);
 }
+/** Lens durations offered in forms. Any other value is a custom duration. */
+export const DURATION_OPTIONS:ReadonlyArray<readonly [number,string]>=[[1,'Günlük'],[15,'15 günlük'],[30,'Aylık · 30 gün'],[90,'3 aylık']];
+export const isPresetDuration=(days:number)=>DURATION_OPTIONS.some(([n])=>n===days);
+export function durationLabel(days:number){return days===1?'Günlük':days===15?'15 günlük':days===30?'Aylık':days===90?'3 aylık':`${days} gün`;}
+/** Short Turkish date, e.g. "16 Kas". */
+export function shortDate(value:DateOnly){return parseDate(value).toLocaleDateString('tr-TR',{day:'numeric',month:'short'});}
+/**
+ * Owl reaction for a package; a visual cue only. Monthly: 20 and 30 days. 15-day: the same
+ * proportions (10 and 15 days). Other durations keep the calm owl.
+ */
+export function packageMascotLevel(durationDays:number,elapsedDays:number):1|2|3 {
+  if(durationDays===30)return monthlyMascotLevel(elapsedDays);
+  if(durationDays===15)return elapsedDays>15?3:elapsedDays>=10?2:1;
+  return 1;
+}
 /** Mascot reaction thresholds for the monthly package card; this is a visual alert only. */
 export function monthlyMascotLevel(elapsedDays:number):1|2|3 {
   return elapsedDays>30?3:elapsedDays>=20?2:1;

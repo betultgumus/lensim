@@ -34,25 +34,28 @@ async function savedState() {
   finally{db.close();}
 }
 function button(dom, text) { return [...dom.window.document.querySelectorAll('[role="button"],button')].find(el=>el.textContent.includes(text)); }
+// The today answer is the last control with this exact label (the calendar panel has the same options).
+function answer(dom, text) { return [...dom.window.document.querySelectorAll(`[aria-label="${text}"]`)].at(-1); }
 (async()=>{
   let dom;
   try {
     dom=await open('/');
     await waitFor(()=>button(dom,'İlk paketi kaydet'),'first-package setup');
     button(dom,'İlk paketi kaydet').click();
-    await waitFor(()=>button(dom,'Bugün taktım'),'home screen');
+    await waitFor(()=>answer(dom,'Taktım'),'home screen');
     const initial=await savedState();
     assert.equal(initial.packages.length,2,'onboarding opens both eyes');
     assert.equal(initial.boxes[0].lensesRemaining,4,'opening both eyes consumes two lenses');
-    assert.equal(dom.window.document.body.textContent.includes('Bugün lens takmadım'),true,'shared daily choices include not-worn');
+    assert.ok(answer(dom,'Takmadım'),'shared daily choices include not-worn');
+    assert.ok(answer(dom,'Gözlük'),'glasses is part of the same choice');
 
-    button(dom,'Bugün taktım').click();
+    answer(dom,'Taktım').click();
     await waitFor(async()=>{const s=await savedState();return s.checkIns.length===2&&s.checkIns.every(c=>c.status==='worn');},'shared worn answer saved for both eyes');
-    button(dom,'Bugün lens takmadım').click();
+    answer(dom,'Takmadım').click();
     await waitFor(async()=>{const s=await savedState();return s.checkIns.length===2&&s.checkIns.every(c=>c.status==='notWorn');},'daily answer switched without duplicate records');
 
     dom.window.close();dom=await open('/');
-    await waitFor(()=>button(dom,'Bugün lens takmadım'),'local state after page reload');
+    await waitFor(()=>answer(dom,'Takmadım'),'local state after page reload');
     assert.equal((await savedState()).checkIns.length,2,'answers persist after reload');
     assert.equal(errors.length,0,errors.map(e=>e.message).join('\n'));
     console.log('PASS: web onboarding, paired package creation, shared daily answer, status switch, IndexedDB persistence; no uncaught runtime errors.');

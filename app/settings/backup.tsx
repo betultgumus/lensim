@@ -1,19 +1,44 @@
 import React,{useState} from 'react';
-import {Platform,Share,View} from 'react-native';
-import {Button,Copy,Field,Screen} from '../../src/components/ui';
-import {useApp} from '../../src/state/AppContext';
+import {Alert,View} from 'react-native';
+import {Button,Card,Copy,Screen,useColors} from '../../src/components/ui';
+import {useApp,errorText} from '../../src/state/AppContext';
+import {validateState} from '../../src/domain/reducer';
+import {formatDate} from '../../src/domain/dates';
+import type {AppState} from '../../src/domain/types';
+import {pickBackupFile,saveBackupFile} from '../../src/services/backupFile';
+
+/** Parses and checks a backup before anything is replaced. */
+function readBackup(text:string):{state:AppState;exportedAt?:string}{
+ let parsed:Record<string,unknown>;
+ try{parsed=JSON.parse(text);}catch{throw new Error('Bu dosya bir Lensim yedeği değil.');}
+ const exportedAt=typeof parsed.exportedAt==='string'?parsed.exportedAt:undefined;delete parsed.exportedAt;delete parsed.product;
+ return {state:validateState(parsed),exportedAt};
+}
+
 export default function Backup(){
- const {state,dispatch}=useApp();const [payload,setPayload]=useState('');
- const exportData=async()=>{const json=JSON.stringify({...state,exportedAt:new Date().toISOString(),product:'Lensim'},null,2);
-  if(Platform.OS==='web') {const blob=new Blob([json],{type:'application/json'});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=`lensim-yedek-${new Date().toISOString().slice(0,10)}.json`;a.click();URL.revokeObjectURL(url);}
-  else await Share.share({title:'Lensim veri yedeği',message:json});
+ const {state,dispatch}=useApp();const t=useColors();const [message,setMessage]=useState<string|null>(null);const [undo,setUndo]=useState<{revision:number;previous:AppState}|null>(null);
+ const exportData=async()=>{
+  const json=JSON.stringify({...state,exportedAt:new Date().toISOString(),product:'Lensim'},null,2);
+  const saved=await saveBackupFile(`lensim-yedek-${new Date().toISOString().slice(0,10)}.json`,json);
+  if(saved)setMessage('Yedek dosyası kaydedildi. Dosyayı güvenli bir yerde sakla; içinde göz numaraların da var.');
  };
- const restore=async()=>{const parsed=JSON.parse(payload);delete parsed.exportedAt;delete parsed.product;await dispatch({type:'restore',state:parsed});setPayload('');};
- return <Screen title="Veri yedeği" subtitle="Yedeklerini sen kontrol edersin." back>
-  <View style={{padding:16,borderWidth:1,borderColor:'#B9CDE5',backgroundColor:'#E9F3FF',borderRadius:6,gap:8}}><Copy bold>Yerel kopya + isteğe bağlı bulut yedeği</Copy><Copy muted>Lensim kayıtlarını telefonda tutar. Dosya yedeğini düzenli olarak başka bir yere kaydet. Google girişli otomatik yedek Firebase projesi yapılandırıldıktan sonra açılır.</Copy></View>
-  <Button title="Şimdi dosya yedeği oluştur" icon="download-outline" onPress={exportData}/>
-  <Copy size={18} bold>Dosyadan geri yükle</Copy><Copy muted size={13}>JSON yedeğinin içeriğini buraya yapıştır. Geri yükleme mevcut kayıtların yerine yedekteki kayıtları koyar.</Copy>
-  <Field label="Yedek JSON" value={payload} onChange={setPayload} multiline placeholder="{ ... }"/>
-  <Button title="Yedeği geri yükle" secondary disabled={!payload.trim()} onPress={restore}/>
+ const importData=async()=>{
+  const text=await pickBackupFile();if(!text)return;
+  const {state:incoming,exportedAt}=readBackup(text);
+  const previous=state;
+  const summary=`${exportedAt?`Yedek tarihi: ${formatDate(exportedAt.slice(0,10))}\n`:''}Yedekte ${incoming.packages.length} paket ve ${incoming.dailyStatuses.length} günlük kayıt var.\n\nBu telefondaki tüm Lensim kayıtları (${previous.packages.length} paket, ${previous.dailyStatuses.length} gün) silinip yedektekiyle değiştirilecek.`;
+  Alert.alert('Yedek geri yüklensin mi?',summary,[{text:'Vazgeç',style:'cancel'},{text:'Kayıtları değiştir',style:'destructive',onPress:()=>{void dispatch({type:'restore',state:incoming}).then(next=>{
+   setMessage('Yedek geri yüklendi. Yanlış dosyayı seçtiysen aşağıdan önceki kayıtlarına dönebilirsin.');setUndo({revision:next.revision,previous});
+  }).catch(e=>Alert.alert('Geri yüklenemedi',errorText(e)));}}]);
+ };
+ return <Screen title="Veri yedeği" subtitle="Kayıtların yalnızca bu telefonda durur." back>
+  <View style={{padding:16,borderWidth:1,borderColor:t.border,backgroundColor:t.soft,borderRadius:12,gap:8}}>
+   <Copy bold>Yedek senin elinde</Copy>
+   <Copy muted>Lensim internete veri göndermez ve otomatik bulut yedeği yoktur. Telefon değiştirmeden veya uygulamayı silmeden önce yedek dosyası al.</Copy>
+  </View>
+  <Button title="Yedek dosyası kaydet" icon="download-outline" onPress={exportData}/>
+  <Card><Copy bold>Dosyadan geri yükle</Copy><Copy muted size={15}>Yedek dosyasını seç. Değiştirmeden önce sana ne olacağını gösterip onay isteriz.</Copy><Button title="Yedek dosyası seç" secondary icon="folder-open-outline" onPress={importData}/></Card>
+  {message&&<Copy bold>{message}</Copy>}
+  {undo&&state.revision===undo.revision&&<Button title="Önceki kayıtlara dön" secondary icon="arrow-undo-outline" onPress={async()=>{await dispatch({type:'undo',expectedRevision:undo.revision,previous:undo.previous});setUndo(null);setMessage('Önceki kayıtlarına dönüldü.');}}/>}
  </Screen>;
 }

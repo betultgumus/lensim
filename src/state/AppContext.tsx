@@ -7,7 +7,6 @@ import { transition, type Action } from '../domain/reducer';
 import { addDays, trackingDay } from '../domain/dates';
 import { loadState, saveState } from '../data/database';
 import { syncNotifications } from '../services/notifications';
-import { syncWidgets } from '../services/widgets';
 
 type Context = { state: AppState; loading: boolean; error: string | null; syncWarning: string | null; today: string; dispatch: (action: Action) => Promise<AppState>; retry: () => void; resync: () => Promise<void> };
 const AppContext = createContext<Context | null>(null);
@@ -22,8 +21,8 @@ export function AppProvider({ children }: React.PropsWithChildren) {
   const resync = useCallback(async () => {
     const run = effects.current.catch(() => {}).then(async () => {
       const latest = current.current;
-      const results = await Promise.allSettled([syncNotifications(latest), syncWidgets(latest)]);
-      const issues = results.flatMap((r, i) => r.status === 'rejected' ? [`${i === 0 ? 'Bildirim' : 'Widget'}: ${errorText(r.reason)}`] : []);
+      const results = await Promise.allSettled([syncNotifications(latest)]);
+      const issues = results.flatMap(r => r.status === 'rejected' ? [`Bildirim: ${errorText(r.reason)}`] : []);
       setSyncWarning(issues.length ? issues.join('\n') : null);
     });
     effects.current = run; await run;
@@ -48,7 +47,7 @@ export function AppProvider({ children }: React.PropsWithChildren) {
   }, [resync]);
   const dispatch = useCallback((action: Action): Promise<AppState> => {
     const run = queue.current.catch(() => {}).then(async () => {
-      const previous = current.current; const next = transition(previous, action);
+      const previous = current.current; const next = transition(previous, action, trackingDay());
       if (next !== previous) {
         await saveState(next, previous.revision);
         current.current = next; setState(next);

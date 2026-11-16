@@ -1,32 +1,108 @@
-import React,{useEffect,useState} from 'react';
+import React,{useState} from 'react';
 import {View} from 'react-native';
 import {router,useLocalSearchParams} from 'expo-router';
-import {Button,Chip,Copy,Field,Screen,SegmentedControl,styles} from '../../src/components/ui';
+import {Button,Chip,Copy,Field,Screen,SegmentedControl,styles,useColors} from '../../src/components/ui';
 import {DateField} from '../../src/components/DateField';
 import {useApp,uid} from '../../src/state/AppContext';
-import {addDays,dateOnly,isWithinEntryWindow} from '../../src/domain/dates';
+import {addDays,DURATION_OPTIONS,durationLabel,formatDate,isWithinEntryWindow} from '../../src/domain/dates';
 import type {Eye,LensBox} from '../../src/domain/types';
-const durationOptions:[[string,string],[string,string],[string,string],[string,string],[string,string]]=[['1','Günlük'],['14','14 günlük'],['15','15 günlük'],['30','Aylık · 30 gün'],['90','3 aylık']];
+import type {PackageSource} from '../../src/domain/reducer';
+
+type LensType=LensBox['lensType'];
+type Slot={eyes:Eye[];boxId:string;name:string;brand:string;count:string;type:LensType;wantsNumbers:boolean;separateNumbers:boolean;values:Record<string,string>};
+const typeNames:Record<LensType,string>={spherical:'Küresel',toric:'Torik',multifocal:'Multifokal',colored:'Renkli'};
+const rxFields=(type:LensType)=>type==='spherical'?['PWR · lens gücü','BC · lens eğrisi','DIA · lens çapı']:type==='toric'?['SPH · lens numarası','CYL · astigmat numarası','AXIS · astigmat yönü','BC · lens eğrisi','DIA · lens çapı']:type==='multifocal'?['SPH · lens numarası','ADD · yakın ek numarası','BC · lens eğrisi','DIA · lens çapı']:['Renk','PWR · lens gücü','BC · lens eğrisi','DIA · lens çapı'];
+const keyOf=(field:string)=>field.split(' ·')[0]!;
+const eyeName=(eye:Eye)=>eye==='right'?'Sağ':'Sol';
+const emptySlot=(eyes:Eye[],boxId:string):Slot=>({eyes,boxId,name:'',brand:'',count:'6',type:'spherical',wantsNumbers:false,separateNumbers:false,values:{}});
+
+function rxFor(slot:Slot,side:Eye){
+ const twoEyes=slot.eyes.length===2;
+ return Object.fromEntries(rxFields(slot.type).filter(f=>f!=='Renk').map(f=>{const key=keyOf(f);return [key,(twoEyes&&slot.separateNumbers?slot.values[`${side}-${key}`]:slot.values[key])??''];}).filter(([,v])=>String(v).trim()));
+}
+
+function SlotForm({slot,onChange,title}:{slot:Slot;onChange:(next:Slot)=>void;title?:string}){
+ const {state}=useApp();const t=useColors();
+ const available=state.boxes.filter(b=>slot.eyes.every(e=>b.eyes.includes(e)));
+ const set=(patch:Partial<Slot>)=>onChange({...slot,...patch});
+ const twoEyes=slot.eyes.length===2;const fields=rxFields(slot.type);
+ return <View style={{gap:12}}>
+  {title&&<Copy bold size={18}>{title}</Copy>}
+  <View style={styles.wrap}>{available.map(b=><Chip key={b.id} title={`${b.name} · ${durationLabel(b.durationDays)} · ${b.lensesRemaining} lens`} selected={slot.boxId===b.id} onPress={()=>set({boxId:b.id})}/>)}<Chip title="Yeni kutu ekle" selected={slot.boxId==='new'} onPress={()=>set({boxId:'new'})}/></View>
+  {slot.boxId!=='new'&&<Button title="Seçili kutuyu düzenle" secondary icon="create-outline" onPress={()=>router.push({pathname:'/box/[id]',params:{id:slot.boxId}})}/>}
+  {slot.boxId==='new'&&<>
+   <Copy bold>Lens türü</Copy>
+   <View style={styles.wrap}>{(Object.keys(typeNames) as LensType[]).map(v=><Chip key={v} title={typeNames[v]} selected={slot.type===v} onPress={()=>set({type:v})}/>)}</View>
+   <Field label="Kutu adı" value={slot.name} onChange={name=>set({name})}/>
+   <Field label="Marka · isteğe bağlı" value={slot.brand} onChange={brand=>set({brand})}/>
+   <Field label="Kutudaki lens sayısı" numeric value={slot.count} onChange={count=>set({count})}/>
+   <Copy muted size={14}>Yeni kutuda başlangıç adedi 6. Kutunda farklıysa değiştir.</Copy>
+   <View style={{padding:14,borderWidth:1,borderColor:t.border,borderRadius:14,gap:10,backgroundColor:t.surface}}>
+    <Copy bold>Numara bilgisi (isteğe bağlı)</Copy>
+    <Copy muted size={14}>Kutunun üzerinde yazan değerleri girebilirsin. Bilmiyorsan boş bırak.</Copy>
+    <SegmentedControl label="Lens numarası girişi" selected={slot.wantsNumbers?'yes':'no'} onChange={v=>set({wantsNumbers:v==='yes'})} options={[{value:'yes',title:'Girmek istiyorum'},{value:'no',title:'Şimdi geç'}]}/>
+    {slot.wantsNumbers&&<>
+     {twoEyes&&<SegmentedControl label="Sağ ve sol lens numaraları" selected={slot.separateNumbers?'different':'same'} onChange={value=>{
+      const separate=value==='different';const prev=slot.values;
+      const values=separate?Object.fromEntries(fields.flatMap(f=>{const k=keyOf(f);return [[`right-${k}`,prev[`right-${k}`]??prev[k]??''],[`left-${k}`,prev[`left-${k}`]??prev[k]??''],[k,prev[k]??'']];})):Object.fromEntries(fields.map(f=>{const k=keyOf(f);return [k,prev[k]||prev[`right-${k}`]||prev[`left-${k}`]||''];}));
+      set({separateNumbers:separate,values});
+     }} options={[{value:'same',title:'İki göz aynı'},{value:'different',title:'Farklı'}]}/>}
+     {fields.map(f=>{const key=keyOf(f);const setValue=(k:string)=>(v:string)=>set({values:{...slot.values,[k]:v}});
+      if(key==='Renk')return <Field key={key} label="Renk · isteğe bağlı" value={slot.values[key]??''} onChange={setValue(key)}/>;
+      if(twoEyes&&slot.separateNumbers)return <View key={key} style={{gap:6}}><Field signed label={`Sağ · ${f}`} value={slot.values[`right-${key}`]??''} onChange={setValue(`right-${key}`)}/><Field signed label={`Sol · ${f}`} value={slot.values[`left-${key}`]??''} onChange={setValue(`left-${key}`)}/></View>;
+      return <Field key={key} signed label={`${twoEyes?'':`${eyeName(slot.eyes[0]!)} · `}${f}`} value={slot.values[key]??''} onChange={setValue(key)}/>;
+     })}
+    </>}
+   </View>
+  </>}
+ </View>;
+}
+
 export default function NewPackage(){
- const params=useLocalSearchParams<{eye?:Eye}>();const [eye,setEye]=useState<'both'|Eye>(params.eye??'both');const {state,dispatch,today}=useApp();const [boxId,setBoxId]=useState(state.boxes[0]?.id??'new');const [name,setName]=useState('');const [brand,setBrand]=useState('');const [days,setDays]=useState('30');const [custom,setCustom]=useState(false);const [count,setCount]=useState('6');const [opened,setOpened]=useState(dateOnly());const [type,setType]=useState<LensBox['lensType']>('spherical');const [wantsNumbers,setWantsNumbers]=useState(false);const [separateNumbers,setSeparateNumbers]=useState(false);const [values,setValues]=useState<Record<string,string>>({});
- const available=state.boxes.filter(b=>eye==='both'?b.eyes.includes('right')&&b.eyes.includes('left'):b.eyes.includes(eye));
- useEffect(()=>{if(boxId!=='new'&&!available.some(b=>b.id===boxId))setBoxId('new');},[eye,state.boxes,boxId]);
- const fields=type==='spherical'?['PWR · lens gücü','BC · lens eğrisi','DIA · lens çapı']:type==='toric'?['SPH · lens numarası','CYL · astigmat numarası','AXIS · astigmat yönü','BC · lens eğrisi','DIA · lens çapı']:type==='multifocal'?['SPH · lens numarası','ADD · yakın ek numarası','BC · lens eğrisi','DIA · lens çapı']:['Renk','PWR · lens gücü','BC · lens eğrisi','DIA · lens çapı'];
- const rxFor=(side:'right'|'left')=>Object.fromEntries(fields.filter(k=>k!=='Renk').map(k=>{const key=k.split(' ·')[0]!;return [key,values[separateNumbers?`${side}-${key}`:key]??'']} ).filter(([,v])=>String(v).trim()));
- const save=async()=>{const dayCount=Number(days),qty=Number(count);if(!isWithinEntryWindow(opened,today))throw new Error(`Paket açılış tarihi ${addDays(today,-30)} ile ${today} arasında olmalı.`);const eyes:Eye[]=eye==='both'?['right','left']:[eye];
-  const selected=state.boxes.find(b=>b.id===boxId);const existing=eyes.map(e=>state.packages.find(p=>p.eye===e&&!p.closedOn));if(existing.some(p=>p&&opened<p.openedOn))throw new Error('Yeni paket tarihi açık paketin başlangıcından önce olamaz.');if(selected&&selected.lensesRemaining<eyes.length)throw new Error('Bu kutuda seçilen gözler için yeterli lens yok. Yeni kutu ekle.');
-  let newBox:LensBox|undefined;if(boxId==='new'||!selected){if(!Number.isInteger(dayCount)||dayCount<1||dayCount>365||!Number.isInteger(qty)||qty<eyes.length)throw new Error('Süreyi ve lens sayısını kontrol et.');newBox={id:uid(),name:name||brand||'Lens kutum',brand,lensType:type,durationDays:dayCount,lensesTotal:qty,lensesRemaining:qty,eyes,prescription:{right:wantsNumbers?rxFor('right'):{},left:wantsNumbers?rxFor('left'):{},color:wantsNumbers&&type==='colored'?values.Renk:''}};}
-  await dispatch({type:'openPackages',ids:eyes.map(()=>uid()),...(newBox?{newBox}:{boxId:selected!.id}),eyes,date:opened,durationDays:dayCount,...(eyes.length===2?{pairId:uid()}:{})});
-  if(opened<today)router.replace({pathname:'/(tabs)/calendar',params:{date:opened,selectMultiple:'1'}});else router.replace('/(tabs)');
+ const params=useLocalSearchParams<{eye?:Eye}>();const {state,dispatch,today}=useApp();
+ const firstFor=(eyes:Eye[])=>state.boxes.find(b=>eyes.every(e=>b.eyes.includes(e))&&b.lensesRemaining>=eyes.length)?.id??'new';
+ const [eye,setEye]=useState<'both'|Eye>(params.eye??'both');
+ const [separateBoxes,setSeparateBoxes]=useState(false);
+ const [shared,setShared]=useState<Slot>(()=>emptySlot(params.eye?[params.eye]:['right','left'],firstFor(params.eye?[params.eye]:['right','left'])));
+ const [rightSlot,setRightSlot]=useState<Slot>(()=>emptySlot(['right'],firstFor(['right'])));
+ const [leftSlot,setLeftSlot]=useState<Slot>(()=>emptySlot(['left'],firstFor(['left'])));
+ const [days,setDays]=useState('30');const [custom,setCustom]=useState(false);const [opened,setOpened]=useState(today);
+ const chooseEye=(value:'both'|Eye)=>{setEye(value);const eyes:Eye[]=value==='both'?['right','left']:[value];
+  // Values typed for another eye selection never carry over silently.
+  setShared(prev=>({...emptySlot(eyes,firstFor(eyes)),type:prev.type,name:prev.name,brand:prev.brand,count:prev.count}));if(value!=='both')setSeparateBoxes(false);};
+ const slots:Slot[]=eye==='both'&&separateBoxes?[rightSlot,leftSlot]:[shared];
+ const needsDuration=slots.some(s=>s.boxId==='new');
+ const existingDurations=slots.filter(s=>s.boxId!=='new').map(s=>state.boxes.find(b=>b.id===s.boxId)?.durationDays).filter((d):d is number=>!!d);
+ const save=async()=>{
+  if(!isWithinEntryWindow(opened,today))throw new Error(`Paket açılış tarihi ${formatDate(addDays(today,-30))} ile ${formatDate(today)} arasında olmalı.`);
+  const dayCount=Number(days);if(needsDuration&&(!Number.isInteger(dayCount)||dayCount<1||dayCount>365))throw new Error('Kullanım süresini 1–365 gün arasında gir.');
+  const eyes:Eye[]=eye==='both'?['right','left']:[eye];
+  const sourceFor=new Map<Eye,PackageSource>();
+  for(const slot of slots){
+   let source:PackageSource;
+   if(slot.boxId==='new'){
+    const qty=Number(slot.count);if(!Number.isInteger(qty)||qty<slot.eyes.length)throw new Error('Kutudaki lens sayısını kontrol et.');
+    const prescription={right:slot.wantsNumbers&&slot.eyes.includes('right')?rxFor(slot,'right'):{},left:slot.wantsNumbers&&slot.eyes.includes('left')?rxFor(slot,'left'):{},color:slot.wantsNumbers&&slot.type==='colored'?slot.values.Renk??'':''};
+    source={newBox:{id:uid(),name:slot.name.trim()||slot.brand.trim()||(slot.eyes.length===1?`${eyeName(slot.eyes[0]!)} göz kutum`:'Lens kutum'),brand:slot.brand.trim(),lensType:slot.type,durationDays:dayCount,lensesTotal:qty,lensesRemaining:qty,eyes:[...slot.eyes],prescription}};
+   } else {
+    const box=state.boxes.find(b=>b.id===slot.boxId);if(!box)throw new Error('Seçilen kutu bulunamadı.');
+    if(box.lensesRemaining<slot.eyes.length)throw new Error(`“${box.name}” kutusunda yeterli lens yok. Yeni kutu ekle.`);
+    source={boxId:box.id};
+   }
+   for(const e of slot.eyes)sourceFor.set(e,source);
+  }
+  await dispatch({type:'openPackages',ids:eyes.map(()=>uid()),boxes:eyes.map(e=>sourceFor.get(e)!),eyes,date:opened,...(needsDuration?{durationDays:dayCount}:{}),...(eyes.length===2?{pairId:uid()}:{})});
+  if(opened<today)router.replace({pathname:'/days',params:{date:opened,selectMultiple:'1'}});else router.replace('/(tabs)');
  };
- return <Screen title="Yeni paket" subtitle="Paketi fiziksel lens kutunu açtığın gün başlat." back>
-  <View style={{padding:14,borderLeftWidth:4,borderLeftColor:'#0754C8',backgroundColor:'#E9F3FF',gap:5}}><Copy bold>Lens kutunu aç, takibe başla</Copy><Copy muted>Kaydı şimdi yapabilirsin; açılış tarihini gerçek kutuyu açtığın gün olarak seç. Sayaç o günden başlar.</Copy></View>
-  <Copy bold>Göz</Copy><SegmentedControl label="Paket açılacak göz" selected={eye} onChange={value=>setEye(value as 'both'|Eye)} options={[{value:'both',title:'İkisi'},{value:'right',title:'Sağ'},{value:'left',title:'Sol'}]}/>
-  <Copy bold>Kullanım türü</Copy><View style={styles.wrap}>{durationOptions.map(([n,label])=><Chip key={n} title={label} selected={!custom&&days===n} onPress={()=>{setCustom(false);setDays(n);}}/>)}<Chip title="Özel" selected={custom} onPress={()=>setCustom(true)}/></View>{custom&&<Field label="Özel kullanım süresi · gün" numeric value={days} onChange={setDays}/>}
-  <Copy bold>Kutu</Copy><View style={styles.wrap}>{available.map(b=><Chip key={b.id} title={`${b.name} · ${b.lensesRemaining}/${b.lensesTotal} yedek`} selected={boxId===b.id} onPress={()=>setBoxId(b.id)}/>) }<Chip title="Yeni kutu ekle" selected={boxId==='new'} onPress={()=>setBoxId('new')}/></View>
-  {boxId!=='new'&&state.boxes.some(b=>b.id===boxId)&&<Button title="Seçili kutuyu düzenle" secondary icon="create-outline" onPress={()=>router.push({pathname:'/box/[id]',params:{id:boxId}})}/>}
-  {boxId==='new'&&<><Copy bold>Yeni kutu bilgisi</Copy><View style={styles.wrap}>{(['spherical','toric','multifocal','colored'] as const).map(v=><Chip key={v} title={{spherical:'Küresel',toric:'Torik',multifocal:'Multifokal',colored:'Renkli'}[v]} selected={type===v} onPress={()=>setType(v)}/>)}</View><Field label="Kutu adı" value={name} onChange={setName}/><Field label="Marka · isteğe bağlı" value={brand} onChange={setBrand}/><Field label="Kutudaki lens sayısı · varsayılan 6" numeric value={count} onChange={setCount}/><Copy muted size={13}>Yeni kutuda başlangıç adedi 6’dır. Kutundaki gerçek adetten farklıysa değiştirebilirsin.</Copy>
-    <View style={{padding:14,borderWidth:1,borderColor:'#C6DCF6',borderRadius:14,gap:9,backgroundColor:'#F8FBFF'}}><Copy bold>Numara bilgisi ekle (isteğe bağlı)</Copy><Copy muted size={14}>Kutu kaydı numarasız da tamamlanır; değerleri bilmiyorsan boş bırakabilirsin.</Copy><SegmentedControl label="Lens numarası girişi" selected={wantsNumbers?'yes':'no'} onChange={value=>setWantsNumbers(value==='yes')} options={[{value:'yes',title:'Girmek istiyorum'},{value:'no',title:'Şimdi geç'}]}/>{wantsNumbers&&<><Copy muted size={13}>Lens kutusunda yazan değerleri girmen yeterli.</Copy>{eye==='both'&&<SegmentedControl label="Sağ ve sol lens numaraları" selected={separateNumbers?'different':'same'} onChange={value=>{const separate=value==='different';setValues(prev=>separate?Object.fromEntries(fields.flatMap(f=>{const k=f.split(' ·')[0]!;return [[`right-${k}`,prev[`right-${k}`]??prev[k]??''],[`left-${k}`,prev[`left-${k}`]??prev[k]??'']]})):Object.fromEntries(fields.map(f=>{const k=f.split(' ·')[0]!;return [k,prev[k]??prev[`right-${k}`]??prev[`left-${k}`]??'']})));setSeparateNumbers(separate);}} options={[{value:'same',title:'İki göz aynı'},{value:'different',title:'Farklı'}]}/>}{fields.map(f=>{const key=f.split(' ·')[0]!;return separateNumbers&&eye==='both'&&key!=='Renk'?<View key={key} style={{gap:6}}><Field label={`Sağ · ${f}`} value={values[`right-${key}`]??''} onChange={v=>setValues(prev=>({...prev,[`right-${key}`]:v}))}/><Field label={`Sol · ${f}`} value={values[`left-${key}`]??''} onChange={v=>setValues(prev=>({...prev,[`left-${key}`]:v}))}/></View>:<Field key={key} label={`${f} · isteğe bağlı`} value={values[key]??''} onChange={v=>setValues(prev=>({...prev,[key]:v}))}/>})}</>}</View></>}
-  <DateField label="Lens kutusunu açtığın tarih" value={opened} onChange={setOpened}/><Copy size={13} muted>En fazla 30 gün öncesine tarih girebilirsin. Eski tarih seçersen kayıt sonrası o günleri takvimde işaretleyebilirsin.</Copy><Button title="Kutuyu açtım · takibi başlat" icon="eye-outline" onPress={save}/>
+ return <Screen title="Yeni paket" subtitle="Lens kutunu açtığın gün sayaç başlar." back>
+  <Copy bold>Göz</Copy>
+  <SegmentedControl label="Paket açılacak göz" selected={eye} onChange={value=>chooseEye(value as 'both'|Eye)} options={[{value:'both',title:'İkisi'},{value:'right',title:'Sağ'},{value:'left',title:'Sol'}]}/>
+  {eye==='both'&&<><Copy bold>Kutu</Copy><SegmentedControl label="Kutu seçimi" selected={separateBoxes?'separate':'shared'} onChange={v=>setSeparateBoxes(v==='separate')} options={[{value:'shared',title:'Tek kutu'},{value:'separate',title:'Her göze ayrı'}]}/></>}
+  {eye==='both'&&separateBoxes?<><SlotForm title="Sağ göz kutusu" slot={rightSlot} onChange={setRightSlot}/><SlotForm title="Sol göz kutusu" slot={leftSlot} onChange={setLeftSlot}/></>:<SlotForm title={eye==='both'?undefined:'Kutu'} slot={shared} onChange={setShared}/>}
+  {needsDuration?<><Copy bold>Kullanım süresi</Copy><View style={styles.wrap}>{DURATION_OPTIONS.map(([n,label])=><Chip key={n} title={label} selected={!custom&&days===String(n)} onPress={()=>{setCustom(false);setDays(String(n));}}/>)}<Chip title="Özel" selected={custom} onPress={()=>setCustom(true)}/></View>{custom&&<Field label="Özel kullanım süresi · gün" numeric value={days} onChange={setDays}/>}</>
+   :<Copy muted>Kullanım süresi kutudan alınır: {[...new Set(existingDurations.map(durationLabel))].join(' · ')}.</Copy>}
+  <DateField label="Lens kutusunu açtığın tarih" value={opened} onChange={setOpened}/>
+  <Copy size={14} muted>En fazla 30 gün öncesini seçebilirsin. Eski bir tarih seçersen kayıttan sonra o günleri takvimde işaretleyebilirsin.</Copy>
+  <Button title="Kutuyu açtım · takibi başlat" icon="eye-outline" onPress={save}/>
  </Screen>;
 }

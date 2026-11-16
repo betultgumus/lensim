@@ -1,5 +1,8 @@
 import { addDays, dateOnly, getNextReplacementDate, isWithinEntryWindow, parseDate, timeParts, validatePlan } from './dates.ts';
-import { defaultState, type AppState, type Plan, type Scope, type Settings, type ModuleKey, type Journal, type Auxiliary, type LensBox, type Eye, type PrescriptionRecord, type DailyStatus } from './types.ts';
+import { defaultState, type AppState, type Plan, type Scope, type Settings, type ModuleKey, type Journal, type Auxiliary, type LensBox, type LensPackage, type Eye, type PrescriptionRecord, type DailyStatus } from './types.ts';
+
+/** Box used for one eye: an existing box id or a new box created in the same transaction. */
+export type PackageSource = { boxId?: string; newBox?: LensBox };
 
 export type Action =
   | { type: 'setup'; plan: Plan; start: string; due?: string; id: string }
@@ -21,9 +24,9 @@ export type Action =
   | { type: 'addBox'; box: LensBox }
   | { type: 'editBox'; id:string; patch: Partial<Pick<LensBox,'name'|'brand'|'lensType'|'durationDays'|'lensesTotal'|'lensesRemaining'|'prescription'>> }
   | { type: 'openPackage'; id: string; boxId: string; eye: Eye; date: string }
-  | { type: 'openPackages'; ids: string[]; boxId?: string; newBox?: LensBox; eyes: Eye[]; date: string; pairId?: string; durationDays?:number }
-  | { type:'deletePackage';id:string }
-  | { type:'editPackage';id:string;openedOn:string;durationDays:number }
+  | { type: 'openPackages'; ids: string[]; boxId?: string; newBox?: LensBox; boxes?: PackageSource[]; eyes: Eye[]; date: string; pairId?: string; durationDays?:number }
+  | { type:'deletePackage';id:string;withPair?:boolean }
+  | { type:'editPackage';id:string;openedOn:string;durationDays:number;withPair?:boolean }
   | { type: 'closePackage'; id: string; date: string }
   | { type: 'checkIn'; id: string; packageId: string; date: string; status: 'worn' | 'notWorn' | 'glasses'; automatic?: boolean }
   | { type: 'dailyStatus'; id:string; date:string; status:'worn'|'notWorn'|'glasses'; automatic?:boolean }
@@ -39,18 +42,39 @@ export function activeCycles(state: AppState) {
 }
 // State contains JSON values only. Do not depend on structuredClone availability in Hermes.
 function cloneState(state: AppState): AppState { return JSON.parse(JSON.stringify(state)) as AppState; }
+/**
+ * Writes the single shared answer for a day and mirrors it to every package open that day.
+ * An automatic write never changes an answer that already exists for the day: it only fills
+ * the missing per-package records with the existing answer. This keeps manual corrections
+ * intact when auto-fill or package edits regenerate records.
+ */
 function setDailyStatus(state:AppState,id:string,date:string,status:'worn'|'notWorn'|'glasses',automatic:boolean,today:string,requiredPackageId?:string){
-  parseDate(date);if(date>today)throw new Error('Gelecek gün işaretlenemez.');if(!automatic&&!isWithinEntryWindow(date,today))throw new Error('Geçmiş kullanım kaydı en fazla 30 gün geriye girilebilir.');
+  const fromAutomation=automatic;
+  parseDate(date);if(date>today)throw new Error('Gelecek gün işaretlenemez.');if(!fromAutomation&&!isWithinEntryWindow(date,today))throw new Error('Geçmiş kullanım kaydı en fazla 30 gün geriye girilebilir.');
   const applicable=state.packages.filter(p=>p.openedOn<=date&&(!p.closedOn||date<=p.closedOn));
   if(requiredPackageId&&!applicable.some(p=>p.id===requiredPackageId))throw new Error('Bu tarih için açık lens paketi yok.');
+  const day=state.dailyStatuses.find(d=>d.date===date);
+  if(fromAutomation&&day){status=day.status;automatic=day.automatic;}
   if(status==='worn'&&!applicable.length)throw new Error('Lens takıldı kaydı için o gün açık bir paket bulunmalı.');
-  const day=state.dailyStatuses.find(d=>d.date===date);if(day){day.status=status;day.automatic=automatic;}else state.dailyStatuses.push({id,date,status,automatic});
+  if(day){day.status=status;day.automatic=automatic;}else state.dailyStatuses.push({id,date,status,automatic});
   for(const pack of applicable){
     const existing=state.checkIns.find(c=>c.packageId===pack.id&&c.date===date);const box=state.boxes.find(b=>b.id===pack.boxId)!;let stockUsed=existing?.stockUsed??existing?.status==='worn';
-    if((pack.durationDaysSnapshot??box.durationDays)===1){const willWear=status==='worn';if(!stockUsed&&willWear&&box.lensesRemaining<1&&!automatic)throw new Error('Günlük lens kutusunda yedek kalmamış.');if(stockUsed&&!willWear){box.lensesRemaining+=1;stockUsed=false;}else if(!stockUsed&&willWear&&box.lensesRemaining>0){box.lensesRemaining-=1;stockUsed=true;}else if(!willWear)stockUsed=false;}
+    if((pack.durationDaysSnapshot??box.durationDays)===1){const willWear=status==='worn';if(!stockUsed&&willWear&&box.lensesRemaining<1&&!fromAutomation)throw new Error('Günlük lens kutusunda yedek kalmamış.');if(stockUsed&&!willWear){box.lensesRemaining+=1;stockUsed=false;}else if(!stockUsed&&willWear&&box.lensesRemaining>0){box.lensesRemaining-=1;stockUsed=true;}else if(!willWear)stockUsed=false;}
     if(existing){existing.status=status;existing.automatic=automatic;if((pack.durationDaysSnapshot??box.durationDays)===1)existing.stockUsed=stockUsed;}
     else state.checkIns.push({id:`${id}-${pack.id}`,packageId:pack.id,date,status,automatic,...((pack.durationDaysSnapshot??box.durationDays)===1?{stockUsed}:{})});
   }
+}
+/** Removes a package's day records outside its open range, returning daily lenses to its box. */
+function releaseCheckInsOutside(state:AppState,pack:LensPackage){
+  const box=state.boxes.find(b=>b.id===pack.boxId);
+  for(const c of state.checkIns.filter(c=>c.packageId===pack.id&&(c.date<pack.openedOn||(pack.closedOn!==null&&c.date>pack.closedOn)))){
+    if(c.stockUsed&&box)box.lensesRemaining=Math.min(box.lensesTotal,box.lensesRemaining+1);
+  }
+  state.checkIns=state.checkIns.filter(c=>c.packageId!==pack.id||(c.date>=pack.openedOn&&(pack.closedOn===null||c.date<=pack.closedOn)));
+}
+/** Re-mirrors existing daily answers from a date onward without changing any answer. */
+function regenerateFrom(state:AppState,from:string,today:string){
+  for(const day of state.dailyStatuses.filter(d=>d.date>=from&&d.date<=today).sort((a,b)=>a.date.localeCompare(b.date)))setDailyStatus(state,day.id,day.date,day.status,true,today);
 }
 function validDates(start: string, due: string) {
   parseDate(start); parseDate(due);
@@ -206,47 +230,79 @@ export function transition(previous: AppState, action: Action, today = dateOnly(
       parseDate(action.date);
       if (!isWithinEntryWindow(action.date,today)) throw new Error('Paket açılış tarihi bugün ile en fazla 30 gün öncesi arasında olmalı.');
       if (!action.eyes.length || new Set(action.eyes).size!==action.eyes.length || action.ids.length!==action.eyes.length || action.ids.some(id=>state.packages.some(p=>p.id===id))) throw new Error('Göz seçimini kontrol et.');
-      let box:LensBox|undefined;
-      if(action.newBox){
-        const b=action.newBox;
-        if(!b.id||state.boxes.some(existing=>existing.id===b.id)||!b.name.trim()||!Number.isInteger(b.durationDays)||b.durationDays<1||!Number.isInteger(b.lensesTotal)||b.lensesTotal<1||b.lensesRemaining!==b.lensesTotal||!Array.isArray(b.eyes)||b.eyes.some(e=>!['right','left'].includes(e)))throw new Error('Kutu bilgilerini kontrol et.');
-        state.boxes.push(b);box=b;
-        const filled=Object.values(b.prescription.right??{}).some(Boolean)||Object.values(b.prescription.left??{}).some(Boolean)||Boolean(b.prescription.color);
-        if(filled)state.prescriptionHistory.push({id:`lens-rx-${b.id}`,date:action.date,kind:'lens',eyes:[...b.eyes],values:{...(b.prescription.right?{right:{...b.prescription.right}}:{}),...(b.prescription.left?{left:{...b.prescription.left}}:{})}});
-      } else box=state.boxes.find(b=>b.id===action.boxId);
-      if(!box||action.eyes.some(e=>!box!.eyes.includes(e)))throw new Error('Seçilen kutu bu gözler için uygun değil.');
+      const sources=action.boxes??action.eyes.map(()=>({boxId:action.boxId,newBox:action.newBox}));
+      if(sources.length!==action.eyes.length)throw new Error('Her göz için bir kutu seç.');
+      const created=new Set<string>();const resolved:{box:LensBox;isNew:boolean}[]=[];
+      for(let i=0;i<sources.length;i++){
+        const src=sources[i]!;let box:LensBox|undefined;
+        if(src.newBox){
+          const b=src.newBox;
+          if(created.has(b.id))box=state.boxes.find(x=>x.id===b.id);
+          else{
+            if(!b.id||state.boxes.some(existing=>existing.id===b.id)||!b.name.trim()||!Number.isInteger(b.durationDays)||b.durationDays<1||!Number.isInteger(b.lensesTotal)||b.lensesTotal<1||b.lensesRemaining!==b.lensesTotal||!Array.isArray(b.eyes)||!b.eyes.length||b.eyes.some(e=>!['right','left'].includes(e)))throw new Error('Kutu bilgilerini kontrol et.');
+            box=JSON.parse(JSON.stringify(b)) as LensBox;state.boxes.push(box);created.add(b.id);
+            const filled=Object.values(b.prescription.right??{}).some(Boolean)||Object.values(b.prescription.left??{}).some(Boolean)||Boolean(b.prescription.color);
+            if(filled)state.prescriptionHistory.push({id:`lens-rx-${b.id}`,date:action.date,kind:'lens',eyes:[...b.eyes],values:{...(b.prescription.right?{right:{...b.prescription.right}}:{}),...(b.prescription.left?{left:{...b.prescription.left}}:{})}});
+          }
+        } else box=state.boxes.find(b=>b.id===src.boxId);
+        if(!box||!box.eyes.includes(action.eyes[i]!))throw new Error('Seçilen kutu bu gözler için uygun değil.');
+        resolved.push({box,isNew:Boolean(src.newBox)});
+      }
       const existing=action.eyes.map(eye=>state.packages.find(p=>p.eye===eye&&!p.closedOn));
       if(existing.some(p=>p&&action.date<p.openedOn))throw new Error('Yeni paket tarihi açık paketin başlangıcından önce olamaz.');
-      const duration=action.durationDays??box.durationDays;if(!Number.isInteger(duration)||duration<1||duration>365)throw new Error('Lens kullanım süresini 1–365 gün arasında seç.');
-      if(box.lensesRemaining<action.eyes.length)throw new Error('Kutuda seçilen gözler için yeterli lens yok.');
+      // An existing box keeps its own duration; the duration choice applies only to a new box.
+      const durations=resolved.map(({box,isNew})=>isNew?(action.durationDays??box.durationDays):box.durationDays);
+      if(durations.some(d=>!Number.isInteger(d)||d<1||d>365))throw new Error('Lens kullanım süresini 1–365 gün arasında seç.');
+      const needed=new Map<string,number>();for(const {box} of resolved)needed.set(box.id,(needed.get(box.id)??0)+1);
+      for(const [boxId,count] of needed){const box=state.boxes.find(b=>b.id===boxId)!;if(box.lensesRemaining<count)throw new Error('Kutuda seçilen gözler için yeterli lens yok.');}
       for(let i=0;i<action.eyes.length;i++){
-        const old=existing[i];if(old)old.closedOn=action.date===old.openedOn?action.date:addDays(action.date,-1);
+        const old=existing[i];if(!old)continue;
+        old.closedOn=action.date===old.openedOn?action.date:addDays(action.date,-1);
+        releaseCheckInsOutside(state,old);
       }
-      if(duration>1)box.lensesRemaining-=action.eyes.length;
-      for(let i=0;i<action.eyes.length;i++)state.packages.push({id:action.ids[i]!,boxId:box.id,eye:action.eyes[i]!,openedOn:action.date,closedOn:null,durationDaysSnapshot:duration,lensTypeSnapshot:box.lensType,prescriptionSnapshot:JSON.parse(JSON.stringify(box.prescription)),...(action.eyes.length===2&&action.pairId?{pairId:action.pairId}:{})});
-      for(const day of state.dailyStatuses.filter(d=>d.date>=action.date))setDailyStatus(state,day.id,day.date,day.status,day.automatic,today);
+      for(let i=0;i<action.eyes.length;i++){
+        const {box}=resolved[i]!;const duration=durations[i]!;
+        if(duration>1)box.lensesRemaining-=1;
+        state.packages.push({id:action.ids[i]!,boxId:box.id,eye:action.eyes[i]!,openedOn:action.date,closedOn:null,durationDaysSnapshot:duration,lensTypeSnapshot:box.lensType,prescriptionSnapshot:JSON.parse(JSON.stringify(box.prescription)),...(action.eyes.length===2&&action.pairId?{pairId:action.pairId}:{})});
+      }
+      regenerateFrom(state,action.date,today);
       state.onboarded=true;break;
     }
     case 'deletePackage': {
       const pack=state.packages.find(p=>p.id===action.id);if(!pack)return previous;
-      const box=state.boxes.find(b=>b.id===pack.boxId);
-      const entries=state.checkIns.filter(c=>c.packageId===pack.id);
-      if(box){const returned=pack.durationDaysSnapshot===1?entries.filter(c=>c.stockUsed).length:1;box.lensesRemaining=Math.min(box.lensesTotal,box.lensesRemaining+returned);}
-      const affectedDates=new Set(entries.map(c=>c.date));
-      state.checkIns=state.checkIns.filter(c=>c.packageId!==pack.id);state.packages=state.packages.filter(p=>p.id!==pack.id);
-      state.dailyStatuses=state.dailyStatuses.filter(day=>!affectedDates.has(day.date)||day.status!=='worn'||state.packages.some(p=>p.openedOn<=day.date&&(!p.closedOn||day.date<=p.closedOn)));
+      const targets=[pack,...(action.withPair&&pack.pairId?state.packages.filter(p=>p.pairId===pack.pairId&&p.id!==pack.id):[])];
+      let regenerateDate:string|null=null;
+      for(const target of targets){
+        const box=state.boxes.find(b=>b.id===target.boxId);
+        const entries=state.checkIns.filter(c=>c.packageId===target.id);
+        if(box){const returned=(target.durationDaysSnapshot??box.durationDays)===1?entries.filter(c=>c.stockUsed).length:1;box.lensesRemaining=Math.min(box.lensesTotal,box.lensesRemaining+returned);}
+        state.checkIns=state.checkIns.filter(c=>c.packageId!==target.id);state.packages=state.packages.filter(p=>p.id!==target.id);
+        // Deleting the open package undoes the replacement: the package it closed opens again.
+        if(!target.closedOn&&!state.packages.some(p=>p.eye===target.eye&&!p.closedOn)){
+          const before=state.packages.filter(p=>p.eye===target.eye&&p.closedOn&&p.closedOn<=target.openedOn&&p.closedOn>=addDays(target.openedOn,-1)).sort((a,b)=>b.openedOn.localeCompare(a.openedOn))[0];
+          if(before){const from=before.closedOn===target.openedOn?target.openedOn:addDays(before.closedOn!,1);before.closedOn=null;const current=regenerateDate as string|null;regenerateDate=!current||from<current?from:current;}
+        }
+      }
+      if(regenerateDate)regenerateFrom(state,regenerateDate,today);
+      // Keep every answer except a worn day that no package covers anymore.
+      state.dailyStatuses=state.dailyStatuses.filter(day=>day.status!=='worn'||state.packages.some(p=>p.openedOn<=day.date&&(!p.closedOn||day.date<=p.closedOn)));
       break;
     }
     case 'editPackage': {
       const pack=state.packages.find(p=>p.id===action.id);if(!pack)throw new Error('Paket bulunamadı.');
       parseDate(action.openedOn);if(!isWithinEntryWindow(action.openedOn,today))throw new Error('Açılış tarihi bugün ile son 30 gün arasında olmalı.');
       if(!Number.isInteger(action.durationDays)||action.durationDays<1||action.durationDays>365)throw new Error('Lens süresini 1–365 gün arasında seç.');
-      const previousDuration=pack.durationDaysSnapshot??state.boxes.find(b=>b.id===pack.boxId)?.durationDays??30;
-      if((previousDuration===1)!==(action.durationDays===1))throw new Error('Paket açıldıktan sonra günlük ve yedekli lens türü değiştirilemez; kutu sayımı etkilenir.');
-      if(pack.closedOn&&pack.closedOn<action.openedOn)throw new Error('Açılış tarihi kapanış tarihinden sonra olamaz.');
-      if(state.checkIns.some(c=>c.packageId===pack.id&&(c.date<action.openedOn||(pack.closedOn&&c.date>pack.closedOn))))throw new Error('Paketin takviminde yeni açılış tarihinden önce veya kapanıştan sonra kayıt var. Önce takvimi düzelt.');
-      if(state.packages.some(p=>p.id!==pack.id&&p.eye===pack.eye&&p.openedOn<=(pack.closedOn??today)&&(p.closedOn??today)>=action.openedOn))throw new Error('Bu gözde seçilen tarihle çakışan başka bir paket var.');
-      pack.openedOn=action.openedOn;pack.durationDaysSnapshot=action.durationDays;break;
+      const targets=[pack,...(action.withPair&&pack.pairId?state.packages.filter(p=>p.pairId===pack.pairId&&p.id!==pack.id):[])];
+      const targetIds=new Set(targets.map(t=>t.id));
+      for(const target of targets){
+        const previousDuration=target.durationDaysSnapshot??state.boxes.find(b=>b.id===target.boxId)?.durationDays??30;
+        if((previousDuration===1)!==(action.durationDays===1))throw new Error('Paket açıldıktan sonra günlük ve yedekli lens türü değiştirilemez; kutu sayımı etkilenir.');
+        if(target.closedOn&&target.closedOn<action.openedOn)throw new Error('Açılış tarihi kapanış tarihinden sonra olamaz.');
+        if(state.packages.some(p=>!targetIds.has(p.id)&&p.eye===target.eye&&p.openedOn<=(target.closedOn??today)&&(p.closedOn??today)>=action.openedOn))throw new Error('Bu gözde seçilen tarihle çakışan başka bir paket var.');
+      }
+      for(const target of targets){target.openedOn=action.openedOn;target.durationDaysSnapshot=action.durationDays;releaseCheckInsOutside(state,target);}
+      regenerateFrom(state,action.openedOn,today);
+      break;
     }
     case 'closePackage': {
       const pack = state.packages.find(p => p.id === action.id);

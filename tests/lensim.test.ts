@@ -30,9 +30,13 @@ test('daily lens stock is reduced by a worn day and restored when corrected',()=
   assert.equal(state.boxes[0]!.lensesRemaining,6);
   state=transition(state,{type:'checkIn',id:'day',packageId:'r',date:'2026-11-15',status:'worn'});
   assert.equal(state.boxes[0]!.lensesRemaining,5);
-  state=transition(state,{type:'checkIn',id:'day',packageId:'r',date:'2026-11-15',status:'notWorn',automatic:true});
+  // Auto-fill never replaces an answer the user gave.
+  state=transition(state,{type:'checkIn',id:'auto',packageId:'r',date:'2026-11-15',status:'notWorn',automatic:true});
+  assert.equal(state.boxes[0]!.lensesRemaining,5);
+  assert.equal(state.checkIns[0]!.status,'worn');
+  assert.equal(state.checkIns[0]!.automatic,false);
+  state=transition(state,{type:'checkIn',id:'day',packageId:'r',date:'2026-11-15',status:'notWorn'});
   assert.equal(state.boxes[0]!.lensesRemaining,6);
-  assert.equal(state.checkIns[0]!.automatic,true);
 });
 
 test('a daily answer entered for one eye is shared with every active eye; glasses is distinct',()=>{

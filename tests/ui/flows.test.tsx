@@ -34,19 +34,19 @@ test('first package saves locally and requests reminders after setup', async () 
 test('one tap marks both eyes and can be corrected', async () => {
   load.mockResolvedValue(established()); await show(<Home/>);
   expect(screen.getAllByLabelText('Sol ve sağ lens kutusu')).toHaveLength(1);
-  expect(screen.getByText('SOL')).toBeTruthy(); expect(screen.getByText('SAĞ')).toBeTruthy();
-  await fireEvent.press(await screen.findByText('Bugün taktım'));
+  expect(screen.getByText('SOL · L')).toBeTruthy(); expect(screen.getByText('SAĞ · R')).toBeTruthy();
+  await fireEvent.press((await screen.findAllByLabelText('Taktım')).at(-1)!);
   await waitFor(()=>expect(save.mock.calls.at(-1)![0].checkIns).toHaveLength(2));
   expect(save.mock.calls.at(-1)![0].checkIns.every(c=>c.status==='worn')).toBe(true);
-  await fireEvent.press(await screen.findByText('Bugün lens takmadım'));
+  await fireEvent.press((await screen.findAllByLabelText('Takmadım')).at(-1)!);
   await waitFor(()=>expect(save.mock.calls.at(-1)![0].checkIns.every(c=>c.status==='notWorn')).toBe(true));
 });
 
 test('failed local save does not mark today as worn', async () => {
   load.mockResolvedValue(established()); save.mockRejectedValueOnce(new Error('Disk dolu')); await show(<Home/>);
-  await fireEvent.press(await screen.findByText('Bugün taktım'));
+  await fireEvent.press((await screen.findAllByLabelText('Taktım')).at(-1)!);
   await waitFor(()=>expect(Alert.alert).toHaveBeenCalledWith('İşlem tamamlanamadı','Disk dolu'));
-  expect(screen.getByText('Bugün taktım')).toBeTruthy();
+  expect(screen.getAllByLabelText('Taktım').length).toBeGreaterThan(0);
 });
 
 test('long histories render twenty records per page and allow the last page', async () => {
