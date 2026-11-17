@@ -19,8 +19,9 @@ export default function Backup(){
  const {state,dispatch}=useApp();const t=useColors();const [message,setMessage]=useState<string|null>(null);const [undo,setUndo]=useState<{revision:number;previous:AppState}|null>(null);
  const exportData=async()=>{
   const json=JSON.stringify({...state,exportedAt:new Date().toISOString(),product:'Lensim'},null,2);
-  const saved=await saveBackupFile(`lensim-yedek-${new Date().toISOString().slice(0,10)}.json`,json);
-  if(saved)setMessage('Yedek dosyası kaydedildi. Dosyayı güvenli bir yerde sakla; içinde göz numaraların da var.');
+  const name=`lensim-yedek-${new Date().toISOString().slice(0,10)}.json`;
+  const saved=await saveBackupFile(name,json);
+  if(saved)setMessage(`${name} kaydedildi. Dosyayı güvenli bir yerde sakla; içinde göz numaraların da var.`);
  };
  const importData=async()=>{
   const text=await pickBackupFile();if(!text)return;
@@ -36,8 +37,9 @@ export default function Backup(){
    <Copy bold>Yedek senin elinde</Copy>
    <Copy muted>Lensim internete veri göndermez ve otomatik bulut yedeği yoktur. Telefon değiştirmeden veya uygulamayı silmeden önce yedek dosyası al.</Copy>
   </View>
-  <Button title="Yedek dosyası kaydet" icon="download-outline" onPress={exportData}/>
-  <Card><Copy bold>Dosyadan geri yükle</Copy><Copy muted size={15}>Yedek dosyasını seç. Değiştirmeden önce sana ne olacağını gösterip onay isteriz.</Copy><Button title="Yedek dosyası seç" secondary icon="folder-open-outline" onPress={importData}/></Card>
+  <Card style={{gap:8}}><Copy bold>Yedek dosyası hakkında</Copy><Copy size={15}>Dosya türü: <Copy size={15} bold mono>.json</Copy> (ör. lensim-yedek-2026-11-17.json). PDF değildir; Lensim’e geri yüklemek için kullanılır.</Copy><Copy size={15}>İçinde paketlerin, günlük kayıtların ve reçete / göz numaraların bulunur. Dosya şifrelenmez; güvendiğin bir yerde sakla, başkalarıyla paylaşma.</Copy></Card>
+  <Button title="Yedek dosyası kaydet (.json)" icon="download-outline" onPress={exportData}/>
+  <Card><Copy bold>Dosyadan geri yükle</Copy><Copy muted size={15}>Daha önce kaydettiğin .json yedek dosyasını seç. Değiştirmeden önce sana ne olacağını gösterip onay isteriz.</Copy><Button title="Yedek dosyası seç" secondary icon="folder-open-outline" onPress={importData}/></Card>
   {message&&<Copy bold>{message}</Copy>}
   {undo&&state.revision===undo.revision&&<Button title="Önceki kayıtlara dön" secondary icon="arrow-undo-outline" onPress={async()=>{await dispatch({type:'undo',expectedRevision:undo.revision,previous:undo.previous});setUndo(null);setMessage('Önceki kayıtlarına dönüldü.');}}/>}
  </Screen>;

@@ -26,7 +26,7 @@ export default function PackageDetail() {
       <Copy>{duration===1?`Kutuda ${box.lensesRemaining} lens · ${reserveCopy}`:`${openDays} gündür açık · ${worn} gün taktın · ${left} gün kaldı`}</Copy>
       {!!box.brand&&<Copy muted>Marka: {box.brand}</Copy>}
       {Object.entries(rx[pack.eye]??{}).map(([k,v])=><Copy key={k} muted>{k}: {v}</Copy>)}
-      {rx.color&&<Copy muted>Renk: {rx.color}</Copy>}
+      {!!rx.color&&<Copy muted>Renk: {rx.color}</Copy>}
       <Button title="Kutuyu düzenle" secondary icon="create-outline" onPress={()=>router.push({pathname:'/box/[id]',params:{id:box.id}})}/>
       <Button title="Paketi düzenle" secondary icon="create-outline" onPress={()=>router.push({pathname:'/package/edit',params:{id:pack.id}})}/>
       <Button title="Paketi sil" secondary danger icon="trash-outline" onPress={()=>{

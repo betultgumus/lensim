@@ -1,7 +1,7 @@
 import React,{useState} from 'react';
 import {View} from 'react-native';
 import {router,useLocalSearchParams} from 'expo-router';
-import {Button,Chip,Copy,Field,Screen,SegmentedControl,styles,useColors} from '../../src/components/ui';
+import {Button,ChoiceCard,Chip,Copy,Field,Screen,SegmentedControl,styles,useColors} from '../../src/components/ui';
 import {DateField} from '../../src/components/DateField';
 import {useApp,uid} from '../../src/state/AppContext';
 import {addDays,DURATION_OPTIONS,durationLabel,formatDate,isWithinEntryWindow} from '../../src/domain/dates';
@@ -28,9 +28,13 @@ function SlotForm({slot,onChange,title}:{slot:Slot;onChange:(next:Slot)=>void;ti
  const twoEyes=slot.eyes.length===2;const fields=rxFields(slot.type);
  return <View style={{gap:12}}>
   {title&&<Copy bold size={18}>{title}</Copy>}
-  <View style={styles.wrap}>{available.map(b=><Chip key={b.id} title={`${b.name} · ${durationLabel(b.durationDays)} · ${b.lensesRemaining} lens`} selected={slot.boxId===b.id} onPress={()=>set({boxId:b.id})}/>)}<Chip title="Yeni kutu ekle" selected={slot.boxId==='new'} onPress={()=>set({boxId:'new'})}/></View>
-  {slot.boxId!=='new'&&<Button title="Seçili kutuyu düzenle" secondary icon="create-outline" onPress={()=>router.push({pathname:'/box/[id]',params:{id:slot.boxId}})}/>}
-  {slot.boxId==='new'&&<>
+  {available.length>0&&<><Copy bold>Kayıtlı kutularından seç</Copy>
+  <View accessibilityRole="radiogroup" accessibilityLabel={title?`${title}: kayıtlı kutular`:'Kayıtlı kutular'} style={{gap:8}}>{available.map(b=>{const short=b.lensesRemaining<slot.eyes.length;return <ChoiceCard key={b.id} title={b.name} detail={`${typeNames[b.lensType]} · ${durationLabel(b.durationDays)}${b.brand?` · ${b.brand}`:''}`} meta={short?`Kutuda ${b.lensesRemaining} lens kaldı · bu paket için yetmez`:`Kutuda ${b.lensesRemaining} lens kaldı · ${b.eyes.length===2?'iki göz':`${eyeName(b.eyes[0]!)} göz`}`} selected={slot.boxId===b.id} onPress={()=>set({boxId:b.id})}/>;})}</View>
+  {slot.boxId!=='new'&&!!slot.boxId&&<Button title="Seçili kutuyu düzenle" secondary icon="create-outline" onPress={()=>router.push({pathname:'/box/[id]',params:{id:slot.boxId}})}/>}
+  <View style={{flexDirection:'row',alignItems:'center',gap:10,marginTop:2}}><View style={{flex:1,height:1,backgroundColor:t.border}}/><Copy size={13} muted>veya</Copy><View style={{flex:1,height:1,backgroundColor:t.border}}/></View></>}
+  <ChoiceCard variant="add" title="Yeni kutu ekle" detail={slot.boxId==='new'?'Kutu bilgilerini aşağıya gir.':'Elindeki kutu listede yoksa seç; bilgileri sonra girersin.'} selected={slot.boxId==='new'} onPress={()=>set({boxId:'new'})}/>
+  {slot.boxId==='new'&&<View style={{gap:12,padding:14,borderRadius:14,borderWidth:1,borderColor:'#C6DCF6',backgroundColor:'#F7FBFF'}}>
+   <Copy bold size={16}>Yeni kutu bilgileri</Copy>
    <Copy bold>Lens türü</Copy>
    <View style={styles.wrap}>{(Object.keys(typeNames) as LensType[]).map(v=><Chip key={v} title={typeNames[v]} selected={slot.type===v} onPress={()=>set({type:v})}/>)}</View>
    <Field label="Kutu adı" value={slot.name} onChange={name=>set({name})}/>
@@ -54,13 +58,14 @@ function SlotForm({slot,onChange,title}:{slot:Slot;onChange:(next:Slot)=>void;ti
      })}
     </>}
    </View>
-  </>}
+  </View>}
  </View>;
 }
 
 export default function NewPackage(){
  const params=useLocalSearchParams<{eye?:Eye}>();const {state,dispatch,today}=useApp();
- const firstFor=(eyes:Eye[])=>state.boxes.find(b=>eyes.every(e=>b.eyes.includes(e))&&b.lensesRemaining>=eyes.length)?.id??'new';
+ // Preselect a box that can serve this package; with no matching box the new-box form opens. If boxes exist but none has enough lenses, nothing is preselected.
+ const firstFor=(eyes:Eye[])=>{const matching=state.boxes.filter(b=>eyes.every(e=>b.eyes.includes(e)));return matching.find(b=>b.lensesRemaining>=eyes.length)?.id??(matching.length?'':'new');};
  const [eye,setEye]=useState<'both'|Eye>(params.eye??'both');
  const [separateBoxes,setSeparateBoxes]=useState(false);
  const [shared,setShared]=useState<Slot>(()=>emptySlot(params.eye?[params.eye]:['right','left'],firstFor(params.eye?[params.eye]:['right','left'])));
@@ -80,6 +85,7 @@ export default function NewPackage(){
   const sourceFor=new Map<Eye,PackageSource>();
   for(const slot of slots){
    let source:PackageSource;
+   if(!slot.boxId)throw new Error('Kayıtlı bir kutu seç veya “Yeni kutu ekle”yi seç.');
    if(slot.boxId==='new'){
     const qty=Number(slot.count);if(!Number.isInteger(qty)||qty<slot.eyes.length)throw new Error('Kutudaki lens sayısını kontrol et.');
     const prescription={right:slot.wantsNumbers&&slot.eyes.includes('right')?rxFor(slot,'right'):{},left:slot.wantsNumbers&&slot.eyes.includes('left')?rxFor(slot,'left'):{},color:slot.wantsNumbers&&slot.type==='colored'?slot.values.Renk??'':''};

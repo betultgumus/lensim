@@ -5,15 +5,18 @@ import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useApp, errorText } from '../state/AppContext';
 import { useTheme } from '../design/theme';
+import { PressScale } from './PressScale';
 export function useColors() { return useTheme(useApp().state.settings); }
 export function Copy({ children, size = 17, muted = false, bold = false, mono = false, style }: React.PropsWithChildren<{ size?: number; muted?: boolean; bold?: boolean; mono?: boolean; style?: StyleProp<import('react-native').TextStyle> }>) {
   const t = useColors(); return <Text style={[{ color: muted ? t.muted : t.text, fontSize: size, fontWeight: bold ? '700' : '400', fontFamily:mono?(bold?'IBMPlexMono_600SemiBold':'IBMPlexMono_400Regular'):(bold?'Archivo_700Bold':'Archivo_400Regular'), lineHeight: size * 1.4 }, style]}>{children}</Text>;
 }
-export function Screen({ children, title, subtitle, back = false }: React.PropsWithChildren<{ title?: string; subtitle?: string; back?: boolean }>) {
+/** `background` renders behind the scrolling content; `dense` narrows the side gutter to 16 for full-width cards. */
+export function Screen({ children, title, subtitle, back = false, background, dense = false, scrollRef }: React.PropsWithChildren<{ title?: string; subtitle?: string; back?: boolean; background?: React.ReactNode; dense?: boolean; scrollRef?: React.RefObject<import('react-native').ScrollViewInstance | null> }>) {
   const t = useColors();
   return <SafeAreaView style={{ flex: 1, backgroundColor: t.background }} edges={['top','left','right']}>
+    {background}
     <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
-      <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.screen}>
+      <ScrollView ref={scrollRef} keyboardShouldPersistTaps="handled" contentContainerStyle={[styles.screen, dense && { paddingHorizontal: 16 }]}>
         {back && <Pressable accessibilityRole="button" accessibilityLabel="Geri" onPress={() => router.canGoBack() ? router.back() : router.replace('/')} style={styles.back}><Ionicons name="arrow-back" size={23} color={t.text}/><Copy>Geri</Copy></Pressable>}
         {title && <View style={{ marginBottom: 8 }}><Copy size={30} bold>{title}</Copy>{subtitle && <Copy muted style={{ marginTop: 6 }}>{subtitle}</Copy>}</View>}
         {children}
@@ -41,8 +44,8 @@ export function Button({ title, onPress, secondary = false, danger = false, disa
   </Pressable>;
 }
 /** `numeric` is for whole counts; `signed` is for values such as -2.50 or +1.25 (number-pad has no minus or decimal key). */
-export function Field({ label, value, onChange, placeholder, numeric, signed, multiline }: { label: string; value: string; onChange: (s: string) => void; placeholder?: string; numeric?: boolean; signed?: boolean; multiline?: boolean }) {
-  const t = useColors(); return <View style={{ gap: 7 }}><Copy size={14} bold>{label}</Copy><TextInput accessibilityLabel={label} value={value} onChangeText={onChange} placeholder={placeholder} placeholderTextColor={t.muted} keyboardType={signed ? (Platform.OS === 'ios' ? 'numbers-and-punctuation' : 'default') : numeric ? 'number-pad' : 'default'} autoCapitalize="none" multiline={multiline} style={[styles.field, { backgroundColor: t.surface, color: t.text, borderColor: t.border, fontFamily:'Archivo_400Regular', minHeight: multiline ? 100 : 52 }]}/></View>;
+export function Field({ label, value, onChange, placeholder, numeric, signed, multiline, labelAccessory }: { label: string; value: string; onChange: (s: string) => void; placeholder?: string; numeric?: boolean; signed?: boolean; multiline?: boolean; labelAccessory?: React.ReactNode }) {
+  const t = useColors(); return <View style={{ gap: 7 }}>{labelAccessory ? <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}><Copy size={14} bold>{label}</Copy>{labelAccessory}</View> : <Copy size={14} bold>{label}</Copy>}<TextInput accessibilityLabel={label} value={value} onChangeText={onChange} placeholder={placeholder} placeholderTextColor={t.muted} keyboardType={signed ? (Platform.OS === 'ios' ? 'numbers-and-punctuation' : 'default') : numeric ? 'number-pad' : 'default'} autoCapitalize="none" multiline={multiline} style={[styles.field, { backgroundColor: t.surface, color: t.text, borderColor: t.border, fontFamily:'Archivo_400Regular', minHeight: multiline ? 100 : 52 }]}/></View>;
 }
 export function Toggle({ title, description, value, onChange }: { title: string; description?: string; value: boolean; onChange: (v: boolean) => void | Promise<unknown> }) {
   const t = useColors(); return <View style={styles.row}><View style={{ flex: 1, gap: 4 }}><Copy bold>{title}</Copy>{description && <Copy size={14} muted>{description}</Copy>}</View><Switch accessibilityLabel={title} value={value} trackColor={{ false: t.border, true: t.accent }} onValueChange={async v => { try { await onChange(v); } catch (e) { Alert.alert('Kaydedilemedi', errorText(e)); } }}/></View>;
@@ -53,8 +56,24 @@ export function Row({ title, detail, icon, onPress }: { title: string; detail?: 
 export function Chip({ title, selected = false, onPress }: { title: string; selected?: boolean; onPress: () => void | Promise<unknown> }) {
   const t = useColors(); return <Pressable accessibilityRole="button" accessibilityState={{ selected }} onPress={() => Promise.resolve().then(onPress).catch(e => Alert.alert('Kaydedilemedi', errorText(e)))} style={{ paddingHorizontal: 16, paddingVertical: 12, minHeight: 48, borderRadius: 12, borderWidth: 1, borderColor: selected ? t.accent : t.border, backgroundColor: selected ? t.soft : t.surface }}><Copy size={14} bold={selected} style={selected ? { color: t.accent } : undefined}>{title}</Copy></Pressable>;
 }
+/** Pill switch. The selected option is filled and bold; every press gets a short scale response (skipped with reduce motion). */
 export function SegmentedControl({label,options,selected,onChange}:{label:string;options:Array<{value:string;title:string;icon?:keyof typeof Ionicons.glyphMap;selectedColor?:string;selectedTextColor?:string}>;selected:string;onChange:(value:string)=>void}){
- const t=useColors();return <View accessibilityLabel={label} style={{flexDirection:'row',gap:4,padding:4,borderRadius:999,borderWidth:1,borderColor:t.border,backgroundColor:t.soft}}>{options.map(option=>{const active=selected===option.value;const color=active?(option.selectedColor??t.accent):'transparent';const textColor=active?(option.selectedTextColor??'#FFFFFF'):t.text;return <Pressable key={option.value} accessibilityRole="button" accessibilityLabel={option.title} accessibilityState={{selected:active}} onPress={()=>onChange(option.value)} style={{flex:1,minWidth:0,minHeight:44,paddingHorizontal:9,paddingVertical:8,borderRadius:999,backgroundColor:color,alignItems:'center',justifyContent:'center',flexDirection:'row',gap:6}}>{option.icon&&<Ionicons name={option.icon} size={17} color={textColor}/>}<Copy size={15} bold={active} style={{color:textColor,textAlign:'center'}}>{option.title}</Copy></Pressable>})}</View>;
+ const t=useColors();return <View accessibilityLabel={label} style={{flexDirection:'row',gap:4,padding:4,borderRadius:999,borderWidth:1,borderColor:t.border,backgroundColor:t.soft}}>{options.map(option=>{const active=selected===option.value;const color=active?(option.selectedColor??t.accent):'transparent';const textColor=active?(option.selectedTextColor??'#FFFFFF'):t.text;return <PressScale key={option.value} popOn={active} accessibilityRole="button" accessibilityLabel={option.title} accessibilityState={{selected:active}} onPress={()=>onChange(option.value)} style={{flex:1,minWidth:0,minHeight:44,paddingHorizontal:9,paddingVertical:8,borderRadius:999,backgroundColor:color,alignItems:'center',justifyContent:'center',flexDirection:'row',gap:6,...(active?{shadowColor:'#10265A',shadowOpacity:.18,shadowRadius:4,shadowOffset:{width:0,height:1},elevation:2}:null)}}>{option.icon&&<Ionicons name={option.icon} size={17} color={textColor}/>}<Copy size={15} bold={active} style={{color:textColor,textAlign:'center'}}>{option.title}</Copy></PressScale>})}</View>;
+}
+/** One option of a single-choice list: radio mark, title, optional detail lines. `variant="add"` is the dashed "create new" entry. */
+export function ChoiceCard({ title, detail, meta, selected, onPress, variant = 'option', icon }: { title: string; detail?: string; meta?: string; selected: boolean; onPress: () => void; variant?: 'option' | 'add'; icon?: keyof typeof Ionicons.glyphMap }) {
+  const t = useColors(); const add = variant === 'add';
+  return <PressScale pressedScale={0.98} accessibilityRole="radio" accessibilityState={{ checked: selected, selected }} accessibilityLabel={[title, detail, meta].filter(Boolean).join(', ')} onPress={onPress}
+    style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 12, padding: 14, minHeight: 56, borderRadius: 14, borderWidth: selected ? 2 : 1, borderStyle: add && !selected ? 'dashed' : 'solid', borderColor: selected ? t.accent : add ? '#9DB8DA' : t.border, backgroundColor: selected ? '#F1F7FF' : t.surface }}>
+    {add ? <View style={{ width: 24, height: 24, borderRadius: 12, alignItems: 'center', justifyContent: 'center', backgroundColor: selected ? t.accent : t.soft, marginTop: 1 }}><Ionicons name={icon ?? 'add'} size={17} color={selected ? '#FFFFFF' : t.accent}/></View>
+      : <View style={{ width: 22, height: 22, borderRadius: 11, borderWidth: 2, borderColor: selected ? t.accent : '#8EA6C6', alignItems: 'center', justifyContent: 'center', marginTop: 2 }}>{selected && <View style={{ width: 11, height: 11, borderRadius: 6, backgroundColor: t.accent }}/>}</View>}
+    <View style={{ flex: 1, minWidth: 0, gap: 3 }}>
+      <Copy bold size={16} style={{ color: selected || add ? t.accent : t.text }}>{title}</Copy>
+      {!!detail && <Copy size={14} style={{ color: '#3A5079' }}>{detail}</Copy>}
+      {!!meta && <Copy size={13} muted>{meta}</Copy>}
+    </View>
+    {selected && !add && <Ionicons name="checkmark-circle" size={20} color={t.accent}/>}
+  </PressScale>;
 }
 export function Sheet({ visible, title, children, onClose }: React.PropsWithChildren<{ visible: boolean; title: string; onClose: () => void }>) {
   const t = useColors(); return <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
