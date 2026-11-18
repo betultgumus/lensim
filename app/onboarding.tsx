@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View } from 'react-native';
+import { Platform, View } from 'react-native';
 import { router, Redirect } from 'expo-router';
 import { Button, Chip, Copy, Field, Screen, SegmentedControl, styles, useColors } from '../src/components/ui';
 import { useApp, uid } from '../src/state/AppContext';
@@ -34,7 +34,7 @@ export default function Onboarding(){
   if(date<today)router.replace({pathname:'/days',params:{date,selectMultiple:'1'}});else router.replace('/(tabs)');
  }finally{setBusy(false);}};
  return <Screen title="Lensim" subtitle="İlk lens paketini ekle. Hesap gerekmez.">
-  <View style={{padding:16,borderLeftWidth:4,borderLeftColor:t.accent,backgroundColor:t.soft,gap:6}}><Copy bold>Verilerin yalnızca bu telefonda saklanır.</Copy><Copy muted>Telefon değiştirirken Ayarlar → Yedek bölümünden yedek dosyası alabilirsin.</Copy></View>
+  <View style={{padding:16,borderLeftWidth:4,borderLeftColor:t.accent,backgroundColor:t.soft,gap:6}}><Copy bold>{Platform.OS==='web'?'Verilerin yalnızca bu tarayıcıda saklanır.':'Verilerin yalnızca bu telefonda saklanır.'}</Copy><Copy muted>Hesap, giriş veya internet bağlantısı gerekmez; kayıtların hiçbir sunucuya gönderilmez. {Platform.OS==='web'?'Tarayıcı verisini silersen kayıtlar da silinir;':'Telefon değiştirirken'} Ayarlar → Veri yedeği bölümünden .json yedek dosyası alabilirsin.</Copy></View>
   <Copy bold>Hangi göz?</Copy>
   <SegmentedControl label="Göz" selected={eye} onChange={v=>chooseEye(v as 'both'|Eye)} options={[{value:'both',title:'İkisi'},{value:'right',title:'Sağ'},{value:'left',title:'Sol'}]}/>
   <Copy bold>Kullanım süresi</Copy>

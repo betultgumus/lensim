@@ -15,19 +15,29 @@ This document records the Lensim product direction currently being applied to th
 - The UI foundation uses larger text/tap targets, 4–8 dp card corners and flat color treatment in line with the written visual rules.
 - Local reminder planning now includes active-package duration reminders and scheduled daily check-in prompts with “Taktım” / “Takmadım” actions.
 
+## Privacy requirement: no account, no cloud
+
+Lensim stores health-related data (lens use, prescriptions), so it must work without an account, sign-in or network connection. This is a product rule, not a missing feature:
+
+- First launch opens the lens setup directly; there is no sign-up or sign-in screen.
+- Records live only on the device: SQLite (`lens-takip.db`) in the native app, IndexedDB (`lens-takip-web-preview`) in the web preview's browser.
+- Do not add Firebase, OAuth, analytics or any other service that receives lens or prescription data, and do not add account or sync infrastructure.
+- Backup is a user-started local `.json` export/restore. There is no automatic cloud backup; Android app backup is disabled (`allowBackup: false`).
+- Reminders are local notifications scheduled on the device; no push token is registered.
+- `tests/offline-privacy.test.ts` guards these rules.
+
 ## Still required before calling v1 complete
 
-- Firebase is not connected in this working tree. No Firebase project, Google OAuth client, Firebase SDK package or Firestore security rules are configured. The npm registry was unreachable during this session, so the SDK could not be installed. Local SQLite plus file export is usable without cloud; automatic cloud backup and Google sign-in are not active.
 - The Android/iOS notification action flow needs acceptance on physical devices, especially after force-stop, reboot and when the app process is not running. Expo action buttons currently foreground the app so its local database can record the answer.
 - The current native home-screen widgets still use the repository’s older cycle data and do not yet render the supplied Lensim package widget or provide a widget “Taktım” action.
-- New-box management, separate right/left prescriptions, full backup file-picker restore on native platforms, account deletion and English strings remain follow-up work.
+- New-box management, separate right/left prescriptions, full backup file-picker restore on native platforms and English strings remain follow-up work.
 - No signed APK/AAB or IPA was built in this session. Store publication and iOS are later milestones; web export is only a browser preview, not an Android app build.
 
 ## Run the local preview
 
 With dependencies installed, run `npm run web` from the repository. It exports the web app and serves `dist-web` at `http://localhost:8082` by default. Web data is stored in that browser and does not replace the Android SQLite database.
 
-Before release, configure Firebase with owner-only Firestore rules and test both backup upload and restore on a second device. A successful upload alone does not demonstrate recoverability.
+Before release, test a local `.json` backup export and its restore on a second device. A saved file alone does not demonstrate recoverability.
 
 ## Future product ideas (outside v1)
 

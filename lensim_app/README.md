@@ -57,7 +57,7 @@ flutter build apk      # build/app/outputs/flutter-apk/app-release.apk
 
 ## Sonraki sürümler
 
-- 1.1: Google ile giriş ve bulut yedeği (Firebase), ana ekran widget'ı, Play Store imzalama anahtarı.
+- 1.1: ana ekran widget'ı, Play Store imzalama anahtarı. Hesap, bulut eşitlemesi veya otomatik bulut yedeği planlanmıyor.
 - 1.2: iPhone sürümü, İngilizce, istatistik.
 
 ## Notlar

@@ -28,12 +28,19 @@ const daysOpen = (start:string,today:string) => Math.max(1,getDaysRemaining(toda
 /** Colour key for the progress strip; swatches use exactly the strip's colours. */
 function ProgressLegend(){
   const items:Array<{label:string;fill:string;border?:string;dashed?:boolean}>=[{label:'Taktım',fill:palette.right},{label:'Takmadım',fill:palette.left},{label:'Gözlük',fill:palette.glasses},{label:'Cevapsız',fill:palette.unanswered},{label:'Kalan',fill:palette.upcoming,border:palette.upcomingBorder},{label:'Otomatik',fill:'#B9D1F3',border:'#7C93B5',dashed:true}];
-  return <View accessibilityLabel="Renk açıklaması" style={{flexDirection:'row',flexWrap:'wrap',columnGap:12,rowGap:6,justifyContent:'center'}}>{items.map(item=><View key={item.label} style={{flexDirection:'row',alignItems:'center',gap:5}}><View style={{width:12,height:12,borderRadius:3,backgroundColor:item.fill,borderWidth:item.border?1:0,borderColor:item.border,borderStyle:item.dashed?'dashed':'solid'}}/><Copy size={13} style={{color:palette.inkSoft}}>{item.label}</Copy></View>)}</View>;
+  // Always one row: swatch, gaps and text all scale with `size`, so the measured row width is proportional to it
+  // and one step from (available / natural width) lands on the size that fits (between 9 and 11.5 px).
+  // On very narrow screens where even 9 px does not fit, the row wraps instead of clipping a label.
+  const [size,setSize]=useState(11.5);const [wrap,setWrap]=useState(false);const avail=useRef(0);const natural=useRef(0);
+  const fit=()=>{if(!avail.current||!natural.current)return;const raw=Math.floor(size*(avail.current/natural.current)*10)/10;const next=clamp(raw,9,11.5);if(Math.abs(next-size)>=.2)setSize(next);else if(!wrap&&raw<9-.05)setWrap(true);};
+  return <View accessibilityLabel="Renk açıklaması" onLayout={e=>{avail.current=e.nativeEvent.layout.width;fit();}} style={{alignSelf:'stretch',marginHorizontal:-8,overflow:'hidden',alignItems:'center'}}>
+    <View onLayout={e=>{natural.current=e.nativeEvent.layout.width;fit();}} style={{flexDirection:'row',flexWrap:wrap?'wrap':'nowrap',justifyContent:'center',columnGap:size*.55,rowGap:2,maxWidth:wrap?'100%':undefined}}>{items.map(item=><View key={item.label} style={{flexDirection:'row',alignItems:'center',gap:size*.28}}><View style={{width:size*.75,height:size*.75,borderRadius:3,backgroundColor:item.fill,borderWidth:item.border?1:0,borderColor:item.border,borderStyle:item.dashed?'dashed':'solid'}}/><Copy size={size} style={{color:palette.inkSoft,lineHeight:Math.round(size*1.35)}}>{item.label}</Copy></View>)}</View>
+  </View>;
 }
 
 /** Three grouped numbers under the case: open days, worn days, days left. */
-function StatTiles({items}:{items:Array<{label:string;value:string;tone?:string}>}){
-  return <View style={{flexDirection:'row',gap:8}}>{items.map(item=><View key={item.label} accessible accessibilityLabel={`${item.label}: ${item.value}`} style={{flex:1,minWidth:0,paddingVertical:10,paddingHorizontal:6,borderRadius:12,backgroundColor:'#F2F7FE',borderWidth:1,borderColor:'#DCE8F7',alignItems:'center',gap:1}}><Copy bold size={22} style={{color:item.tone??colors.ink,lineHeight:27,fontVariant:['tabular-nums']}}>{item.value}</Copy><Copy size={12} style={{color:palette.inkSoft,textAlign:'center',lineHeight:16}}>{item.label}</Copy></View>)}</View>;
+function StatTiles({items,compact=false}:{items:Array<{label:string;value:string;tone?:string}>;compact?:boolean}){
+  return <View style={{flexDirection:'row',gap:6}}>{items.map(item=><View key={item.label} accessible accessibilityLabel={`${item.label}: ${item.value}`} style={{flex:1,minWidth:0,paddingVertical:compact?2:4,paddingHorizontal:5,borderRadius:10,backgroundColor:'#F2F7FE',borderWidth:1,borderColor:'#DCE8F7',alignItems:'center',gap:1}}><Copy bold size={compact?15:17} style={{color:item.tone??colors.ink,lineHeight:compact?18:20,fontVariant:['tabular-nums']}}>{item.value}</Copy><Copy size={11} style={{color:palette.inkSoft,textAlign:'center',lineHeight:14}}>{item.label}</Copy></View>)}</View>;
 }
 
 function CaseSummary({ pack, checkIns, today, compact=false }: { pack:LensPackage; checkIns:any[]; today:string; compact?:boolean }) {
@@ -65,7 +72,7 @@ function prescriptionText(pack:LensPackage|undefined,boxes:ReturnType<typeof use
   return values.join(' · ');
 }
 
-function CombinedSummary({left,right,checkIns,today,boxes,separateEyes=false}:{left:LensPackage;right:LensPackage;checkIns:any[];today:string;boxes:ReturnType<typeof useApp>['state']['boxes'];separateEyes?:boolean}){
+function CombinedSummary({left,right,checkIns,today,boxes,separateEyes=false,compact=false}:{left:LensPackage;right:LensPackage;checkIns:any[];today:string;boxes:ReturnType<typeof useApp>['state']['boxes'];separateEyes?:boolean;compact?:boolean}){
   const leftBox=boxes.find(b=>b.id===left.boxId);const rightBox=boxes.find(b=>b.id===right.boxId);if(!leftBox||!rightBox)return null;
   const leftDuration=left.durationDaysSnapshot??leftBox.durationDays;const rightDuration=right.durationDaysSnapshot??rightBox.durationDays;
   const elapsed=daysOpen(left.openedOn,today);const leftRemaining=Math.max(0,leftDuration-elapsed);const rightRemaining=Math.max(0,rightDuration-elapsed);
@@ -79,13 +86,13 @@ function CombinedSummary({left,right,checkIns,today,boxes,separateEyes=false}:{l
   const progress=(pack:LensPackage,duration:number,eye:'SOL'|'SAĞ',color:string)=><View key={pack.id} style={{gap:4}}>{(!sameDuration||separateEyes)&&<Copy size={14} bold style={{color}}>{eye} · {durationLabel(duration)}</Copy>}<Progress pack={pack} duration={duration} checkIns={checkIns} today={today}/></View>;
   const stock=leftBox.id===rightBox.id?leftBox.lensesRemaining:leftBox.lensesRemaining+rightBox.lensesRemaining;
   const remainingTile=leftExpired?{label:'Gün aşım',value:`+${elapsed-leftDuration}`,tone:colors.danger}:leftRemaining===0?{label:'Bugün son gün',value:'0',tone:colors.warning}:{label:'Kalan gün',value:String(leftRemaining)};
-  return <View style={{gap:12}}>
-    <View style={{alignItems:'center',gap:6}}>
-      {sameDuration?<View style={{backgroundColor:'#D7E9FF',borderRadius:20,paddingHorizontal:18,paddingVertical:6}}><Copy size={15} bold style={{color:colors.ink}}>{durationLabel(leftDuration)}</Copy></View>:<View style={{flexDirection:'row',flexWrap:'wrap',justifyContent:'center',gap:8}}><View style={{backgroundColor:'#EAF4FF',borderRadius:20,paddingHorizontal:12,paddingVertical:6}}><Copy size={14} bold style={{color:colors.leftText}}>SOL · {durationLabel(leftDuration)}</Copy></View><View style={{backgroundColor:'#EAF4FF',borderRadius:20,paddingHorizontal:12,paddingVertical:6}}><Copy size={14} bold style={{color:colors.right}}>SAĞ · {durationLabel(rightDuration)}</Copy></View></View>}
+  return <View style={{gap:compact?5:6}}>
+    <View style={{alignItems:'center',gap:3}}>
+      {sameDuration?<View style={{backgroundColor:'#D7E9FF',borderRadius:20,paddingHorizontal:14,paddingVertical:1}}><Copy size={12} bold style={{color:colors.ink,letterSpacing:.4,lineHeight:18}}>{durationLabel(leftDuration)}</Copy></View>:<View style={{flexDirection:'row',flexWrap:'wrap',justifyContent:'center',gap:8}}><View style={{backgroundColor:'#EAF4FF',borderRadius:20,paddingHorizontal:10,paddingVertical:2}}><Copy size={12} bold style={{color:colors.leftText}}>SOL · {durationLabel(leftDuration)}</Copy></View><View style={{backgroundColor:'#EAF4FF',borderRadius:20,paddingHorizontal:10,paddingVertical:2}}><Copy size={12} bold style={{color:colors.right}}>SAĞ · {durationLabel(rightDuration)}</Copy></View></View>}
       {sharedRx&&!!rxLeft?<Copy size={14} mono style={{color:colors.ink,textAlign:'center'}}>{rxLeft}</Copy>:(!sharedRx&&!!(rxLeft||rxRight))?<View style={{gap:2,alignItems:'center'}}>{!!rxLeft&&<Copy size={14} mono style={{color:colors.leftText}}>SOL · {rxLeft}</Copy>}{!!rxRight&&<Copy size={14} mono style={{color:colors.right}}>SAĞ · {rxRight}</Copy>}</View>:null}
     </View>
-    {leftDuration===1?<StatTiles items={[{label:'Bu ay takılan gün',value:String(worn)},{label:'Kutuda lens',value:String(stock)}]}/>:<>
-      {sameDuration?<StatTiles items={[{label:'Açık gün',value:String(elapsed)},{label:'Takılan gün',value:String(worn)},remainingTile]}/>:<><StatTiles items={[{label:'Açık gün',value:String(elapsed)},{label:'Takılan gün',value:String(worn)}]}/><View style={{flexDirection:'row',justifyContent:'space-between',gap:8}}><Copy size={14} bold style={{color:leftExpired?colors.danger:colors.ink}}>SOL · {leftExpired?`+${elapsed-leftDuration} gün aşım`:leftRemaining===0?'Bugün son gün':`${leftRemaining} gün kaldı`}</Copy><Copy size={14} bold style={{color:rightExpired?colors.danger:colors.ink,textAlign:'right'}}>SAĞ · {rightExpired?`+${elapsed-rightDuration} gün aşım`:rightRemaining===0?'Bugün son gün':`${rightRemaining} gün kaldı`}</Copy></View></>}
+    {leftDuration===1?<StatTiles compact={compact} items={[{label:'Bu ay takılan gün',value:String(worn)},{label:'Kutuda lens',value:String(stock)}]}/>:<>
+      {sameDuration?<StatTiles compact={compact} items={[{label:'Açık gün',value:String(elapsed)},{label:'Pakette takılan gün',value:String(worn)},remainingTile]}/>:<><StatTiles compact={compact} items={[{label:'Açık gün',value:String(elapsed)},{label:'Pakette takılan gün',value:String(worn)}]}/><View style={{flexDirection:'row',justifyContent:'space-between',gap:8}}><Copy size={14} bold style={{color:leftExpired?colors.danger:colors.ink}}>SOL · {leftExpired?`+${elapsed-leftDuration} gün aşım`:leftRemaining===0?'Bugün son gün':`${leftRemaining} gün kaldı`}</Copy><Copy size={14} bold style={{color:rightExpired?colors.danger:colors.ink,textAlign:'right'}}>SAĞ · {rightExpired?`+${elapsed-rightDuration} gün aşım`:rightRemaining===0?'Bugün son gün':`${rightRemaining} gün kaldı`}</Copy></View></>}
       {sameDuration&&!separateEyes?progress(left,leftDuration,'SOL',colors.leftText):<View style={{gap:6}}>{progress(left,leftDuration,'SOL',colors.leftText)}{progress(right,rightDuration,'SAĞ',colors.right)}</View>}
     </>}
   </View>;
@@ -96,34 +103,104 @@ function CombinedSummary({left,right,checkIns,today,boxes,separateEyes=false}:{l
  * slightly zoomed (empty margins cropped) so the caps fill the card; cap faces are ellipses
  * given as fractions of the image. All text sizes derive from the measured case width.
  */
-const CASE={zoom:1.12,offsetX:-.06,offsetY:-.055,aspect:2.1,faces:{left:{cx:.296,cy:.44},right:{cx:.70,cy:.455}},faceRx:.142,faceRy:.235} as const;
+const CASE={zoom:1.26,offsetX:-.125,offsetY:-.079,aspect:2.1,faces:{left:{cx:.296,cy:.44},right:{cx:.70,cy:.455}},faceRx:.142,faceRy:.235} as const;
 
 function CapCount({eye,pack,today,caseWidth}:{eye:'left'|'right';pack?:LensPackage;today:string;caseWidth:number}){
   const {state}=useApp();const box=pack?state.boxes.find(b=>b.id===pack.boxId):undefined;
-  const isRight=eye==='right';const ink=isRight?'#FFFFFF':colors.ink;const soft=isRight?'#D3E3FF':'#3A6198';
-  const labelSize=clamp(Math.round(caseWidth*.036),11,15);const totalSize=clamp(Math.round(caseWidth*.044),12,19);
-  const label=<Copy bold size={labelSize} style={{color:ink,lineHeight:Math.round(labelSize*1.2),letterSpacing:.6}}>{isRight?'SAĞ · R':'SOL · L'}</Copy>;
-  if(!pack||!box)return <View style={{alignItems:'center'}}>{label}<Copy size={labelSize+1} style={{color:soft}}>Paket yok</Copy></View>;
+  const isRight=eye==='right';const ink=isRight?'#FFFFFF':colors.ink;
+  // The total ("/30") is a quiet companion to the count: lighter weight and a faded tone on each cap.
+  const faded=isRight?'#9DBDF2':'#8EA3C2';
+  const faceWidth=caseWidth*CASE.faceRx*2,faceHeight=caseWidth*CASE.faceRy;
+  let labelSize=clamp(Math.round(caseWidth*.036),11,15);
+  const label=()=><Copy bold size={labelSize} style={{color:ink,lineHeight:Math.round(labelSize*1.2),letterSpacing:.6}}>{isRight?'SAĞ · R':'SOL · L'}</Copy>;
+  if(!pack||!box)return <View style={{alignItems:'center'}}>{label()}<Copy size={labelSize+1} style={{color:faded}}>Paket yok</Copy></View>;
   const duration=pack.durationDaysSnapshot??box.durationDays;const elapsed=daysOpen(pack.openedOn,today);
   const monthCount=new Set(state.checkIns.filter(c=>c.status==='worn'&&c.date.slice(0,7)===today.slice(0,7)).map(c=>c.date)).size;
   const count=duration===1?String(monthCount):String(elapsed);const total=duration===1?'/AY':`/${duration}`;
-  // Sized from the cap face (not the window) so two- and three-digit counts keep a margin to the rim.
-  const base=clamp(Math.round(caseWidth*.13),30,76);const countSize=count.length>=3?Math.round(base*.78):base;
+  // Count and total sit side by side on one baseline; the count is 1.5× the total. Both are sized from the cap face
+  // and scaled down together (with the label) when the row or the stack would not fit inside it.
+  let countSize=clamp(Math.round(caseWidth*.14),26,84);if(count.length>=3)countSize=Math.round(countSize*.8);
+  let totalSize=countSize/1.5;
+  const rowWidth=count.length*.6*countSize+total.length*.6*totalSize+2;
+  const k=Math.min(1,faceWidth*.8/rowWidth,faceHeight*.78/(labelSize*1.2+countSize*1.05));
+  if(k<1){labelSize=Math.max(8,Math.floor(labelSize*k));countSize=Math.floor(countSize*k);totalSize=countSize/1.5;}
+  totalSize=Math.max(8,Math.round(totalSize));
   const overdue=duration>1&&elapsed>duration;
   return <View accessible accessibilityLabel={`${isRight?'Sağ':'Sol'} göz: ${duration===1?`bu ay ${count} gün`:`${count}. gün, ${duration} günlük`}`} style={{alignItems:'center',justifyContent:'center'}}>
-    {label}
-    <Copy bold size={countSize} style={{color:overdue&&!isRight?colors.danger:ink,lineHeight:Math.round(countSize*1.04),fontVariant:['tabular-nums'],letterSpacing:-.5}}>{count}</Copy>
-    <Copy bold mono size={totalSize} style={{color:overdue&&isRight?'#FFD6DB':soft,lineHeight:Math.round(totalSize*1.15)}}>{total}</Copy>
+    {label()}
+    <View style={{flexDirection:'row',alignItems:'baseline'}}>
+      <Copy bold size={countSize} style={{color:overdue&&!isRight?colors.danger:ink,lineHeight:Math.round(countSize*1.05),fontVariant:['tabular-nums'],letterSpacing:-.5}}>{count}</Copy>
+      <Copy mono size={totalSize} style={{color:overdue&&isRight?'#FFD6DB':faded,lineHeight:Math.round(totalSize*1.2),marginLeft:1}}>{total}</Copy>
+    </View>
   </View>;
 }
 
-function LensCaseArt({left,right,today,estimate}:{left?:LensPackage;right?:LensPackage;today:string;estimate:number}){
-  const [measured,setMeasured]=useState(0);const width=measured||estimate;const imageWidth=width*CASE.zoom;const imageHeight=imageWidth/2;
-  return <View onLayout={e=>{const w=Math.round(e.nativeEvent.layout.width);if(w&&w!==measured)setMeasured(w);}} style={{width:'100%',aspectRatio:CASE.aspect,overflow:'hidden'}}>
+function LensCaseArt({left,right,today,estimate,maxWidth}:{left?:LensPackage;right?:LensPackage;today:string;estimate:number;maxWidth?:number}){
+  const [measured,setMeasured]=useState(0);const width=measured||(maxWidth?Math.min(estimate,maxWidth):estimate);const imageWidth=width*CASE.zoom;const imageHeight=imageWidth/2;
+  return <View onLayout={e=>{const w=Math.round(e.nativeEvent.layout.width);if(w&&w!==measured)setMeasured(w);}} style={{width:'100%',maxWidth,alignSelf:'center',aspectRatio:CASE.aspect,overflow:'hidden'}}>
     <Image source={require('../../assets/contact-lens-case.png')} resizeMode="stretch" style={{position:'absolute',left:width*CASE.offsetX,top:width*CASE.offsetY,width:imageWidth,height:imageHeight}} accessibilityLabel="Sol ve sağ lens kutusu"/>
     {(['left','right'] as const).map(eye=>{const face=CASE.faces[eye];const w=imageWidth*CASE.faceRx*2,h=imageHeight*CASE.faceRy*2;const cx=width*CASE.offsetX+imageWidth*face.cx,cy=width*CASE.offsetY+imageHeight*face.cy;
       return <View key={eye} pointerEvents="none" style={{position:'absolute',left:cx-w/2,top:cy-h/2,width:w,height:h,alignItems:'center',justifyContent:'center'}}><CapCount eye={eye} pack={eye==='left'?left:right} today={today} caseWidth={imageWidth}/></View>;})}
   </View>;
+}
+
+type AnswerValue='worn'|'notWorn'|'glasses';
+type AnswerOption={value:string;title:string;icon:keyof typeof Ionicons.glyphMap;selectedColor:string};
+/**
+ * Today's answer inside the lens card. Unanswered: title, month count, the three options and the note. Answered: only
+ * one compact line ("Bugün: Taktım") with "Değiştir", which reopens the full panel in place.
+ * The shown answer always comes from the saved daily status.
+ */
+function TodayAnswer({status,monthWear,options,showIcons,onSelect}:{status:AnswerValue|null;monthWear:number;options:AnswerOption[];showIcons:boolean;onSelect:(value:AnswerValue)=>Promise<void>}){
+  const [editing,setEditing]=useState(false);
+  const chosen=options.find(o=>o.value===status);
+  const showOptions=!chosen||editing;
+  return <View style={{marginHorizontal:-6,backgroundColor:'#EEF5FF',borderRadius:14,borderWidth:1,borderColor:'#D6E5F6',paddingHorizontal:8,paddingVertical:showOptions?8:2,gap:6}}>
+    {showOptions&&<View style={{flexDirection:'row',alignItems:'center',gap:8,paddingHorizontal:2}}>
+      <Copy bold size={15} style={{flex:1,minWidth:0,color:colors.ink,lineHeight:20}}>Bugün lens taktın mı?</Copy>
+      <Copy size={13} style={{color:palette.inkSoft,lineHeight:18}}>{monthWear} gün bu ay</Copy>
+    </View>}
+    {showOptions?<View accessibilityLabel="Bugünkü lens kullanımı" style={{flexDirection:'row',gap:6}}>{options.map(o=>{const selected=status===o.value;
+      return <PressScale key={o.value} popOn={selected} accessibilityRole="button" accessibilityLabel={o.title} accessibilityState={{selected}} onPress={async()=>{await onSelect(o.value as AnswerValue);setEditing(false);}}
+        style={{flex:1,minWidth:0,minHeight:44,borderRadius:12,borderWidth:1,borderColor:selected?o.selectedColor:'#C6DCF6',backgroundColor:selected?o.selectedColor:'#FFFFFF',flexDirection:'row',alignItems:'center',justifyContent:'center',gap:4,paddingHorizontal:4}}>
+        {showIcons&&<Ionicons name={o.icon} size={16} color={selected?'#FFFFFF':colors.ink}/>}
+        <Copy size={14} bold={selected} style={{color:selected?'#FFFFFF':colors.ink,textAlign:'center',lineHeight:18}}>{o.title}</Copy>
+      </PressScale>;})}</View>
+    :<View style={{flexDirection:'row',alignItems:'center',gap:8,minHeight:44,paddingLeft:2}}>
+      <Ionicons name={chosen.icon} size={20} color={chosen.selectedColor}/>
+      <Copy bold size={15} style={{flex:1,minWidth:0,color:colors.ink,lineHeight:20}}>Bugün: {chosen.title}</Copy>
+      <Pressable accessibilityRole="button" accessibilityLabel="Bugünkü cevabı değiştir" onPress={()=>setEditing(true)} style={({pressed})=>({minHeight:44,paddingHorizontal:14,borderRadius:12,borderWidth:1,borderColor:'#C6DCF6',backgroundColor:'#FFFFFF',justifyContent:'center',opacity:pressed?.7:1})}><Copy bold size={14} style={{color:'#0754C8'}}>Değiştir</Copy></Pressable>
+    </View>}
+    {showOptions&&<Copy size={12} style={{color:palette.inkSoft,lineHeight:16,paddingHorizontal:2}}>Cevap iki göz için birlikte kaydedilir.</Copy>}
+  </View>;
+}
+
+/** "Kutuda kalan" info row under "Yeni paket açtım": icon + label, then one quiet chip per eye (and a spare chip when
+ * a shared box has an odd lens). Information only, so it reads as one accessible line; chips wrap on narrow screens. */
+function StockRow({items,spare}:{items:Array<{eye:string;count:number}>;spare:number}){
+  const chip=(key:string,label:string,count:number)=><View key={key} style={{flexDirection:'row',alignItems:'baseline',gap:4,paddingHorizontal:10,paddingVertical:3,borderRadius:999,backgroundColor:'#E4EFFD'}}>
+    <Copy size={13} style={{color:palette.inkSoft,lineHeight:18}}>{label}</Copy>
+    <Copy bold size={15} style={{color:colors.ink,lineHeight:20,fontVariant:['tabular-nums']}}>{count}</Copy>
+    <Copy size={13} style={{color:palette.inkSoft,lineHeight:18}}>lens</Copy>
+  </View>;
+  const spoken=`Kutuda kalan: ${items.map(i=>`${i.eye.toLocaleLowerCase('tr-TR')} ${i.count} lens`).join(', ')}${spare?`, ${spare} yedek lens`:''}`;
+  return <View accessible accessibilityLabel={spoken} style={{flexDirection:'row',flexWrap:'wrap',alignItems:'center',rowGap:6,columnGap:10,paddingHorizontal:12,paddingVertical:7,borderRadius:14,backgroundColor:'#F5F9FF',borderWidth:1,borderColor:'#E1ECF9'}}>
+    <View style={{flexDirection:'row',alignItems:'center',gap:6}}>
+      <Ionicons name="cube-outline" size={18} color="#0754C8"/>
+      <Copy bold size={13} style={{color:colors.ink,lineHeight:18}}>Kutuda kalan</Copy>
+      <View style={{width:1,height:18,backgroundColor:'#D3E2F5',marginLeft:4}}/>
+    </View>
+    <View style={{flex:1,flexDirection:'row',flexWrap:'wrap',justifyContent:'flex-end',gap:6}}>
+      {items.map(i=>chip(i.eye,i.eye,i.count))}
+      {spare>0&&<View style={{flexDirection:'row',alignItems:'baseline',gap:4,paddingHorizontal:10,paddingVertical:3,borderRadius:999,backgroundColor:'#EEF5FF'}}><Copy size={13} style={{color:palette.inkSoft,lineHeight:18}}>Yedek</Copy><Copy bold size={15} style={{color:colors.ink,lineHeight:20}}>{spare}</Copy></View>}
+    </View>
+  </View>;
+}
+
+/** Compact secondary action for the "yesterday" card: 44 px tall touch target, quieter than the shared Button. Ignores repeat presses while saving. */
+function QuietAction({title,onPress}:{title:string;onPress:()=>void|Promise<unknown>}){
+  const busy=useRef(false);
+  return <PressScale accessibilityRole="button" accessibilityLabel={title} onPress={async()=>{if(busy.current)return;busy.current=true;try{await onPress();}finally{busy.current=false;}}} style={{flex:1,minHeight:44,borderRadius:12,backgroundColor:'#E4EFFD',alignItems:'center',justifyContent:'center',paddingHorizontal:10}}><Copy bold size={15} style={{color:'#0754C8',textAlign:'center'}}>{title}</Copy></PressScale>;
 }
 
 /** Web only: lets a mouse drag the pager like a finger. Clicks after a drag are swallowed so buttons don't fire. */
@@ -145,7 +222,25 @@ function useWebMouseDrag(ref:React.RefObject<ScrollViewInstance|null>,enabled:bo
 export default function Home() {
   const {state,today}=useApp();const markDay=useMarkDay();const motion=useCalmMotion();
   const {page:activePage,setPage,goToPage,registerPager}=useHomePager();
-  const {width:windowWidth}=useWindowDimensions();
+  const {width:windowWidth,height:windowHeight}=useWindowDimensions();
+  // The case art height is capped at ~23% of the window (130–230 px). Today's answer sits right under it inside
+  // the card, so header + case + answer fit the first view without measuring.
+  const artCapHeight=clamp(windowHeight*.23,130,230);
+  const [viewportHeight,setViewportHeight]=useState(0);
+  const artMaxWidth=Math.round(artCapHeight*CASE.aspect);
+  // Short visible area (e.g. 4.7" phones): smaller greeting/owl, tighter legend and title. Buttons keep their size.
+  const tight=viewportHeight>0&&viewportHeight<640;
+  const headerTight=tight||windowHeight<740;const owlBase=tight?84:windowHeight<700?90:108;
+  // Header width budget, so greeting and date never wrap. Widest strings, measured in the app fonts:
+  // greeting "İyi akşamlar" 171/148/137 px at 30/26/24; longest Turkish date 180/168/156 px at 15/14/13.
+  // Owl tucked up beside the bell when the text still fits; otherwise it drops below the bell (right-aligned) and shrinks if needed.
+  const headerWidth=Math.min(windowWidth,640)-32;
+  const tucked=headerWidth-8-44-(owlBase+24)>=168;
+  const owlSize=tucked?owlBase:clamp(headerWidth-8-4-24-156,56,owlBase);
+  const headerTextWidth=headerWidth-8-(tucked?44:4)-(owlSize+24);
+  const greetingMax=tight?24:headerTight?26:30;
+  const greetingSize=Math.min(greetingMax,headerTextWidth>=171?30:headerTextWidth>=148?26:24);
+  const dateSize=headerTextWidth>=180?15:headerTextWidth>=168?14:13;
   // Pager width is measured from the pager viewport itself; the window estimate only covers the first frame.
   const estimate=Math.min(windowWidth,640)-32;
   const [pagerWidth,setPagerWidth]=useState(0);
@@ -185,6 +280,17 @@ export default function Home() {
   const [month,setMonth]=useState(today.slice(0,7)+'-01');const [selectedDay,setSelectedDay]=useState(today);
   const right=active.find(p=>p.eye==='right'); const left=active.find(p=>p.eye==='left');
   const leftBox=left?state.boxes.find(b=>b.id===left.boxId):undefined;const rightBox=right?state.boxes.find(b=>b.id===right.boxId):undefined;
+  // Spare lenses per eye, from the boxes the open packages came from (opening a package takes one lens out of its box).
+  // A box shared by both eyes is split evenly; an odd spare lens is shown separately.
+  const stock=((): {items:Array<{eye:'Sol'|'Sağ';count:number}>;spare:number}|null=>{
+    if(left&&right&&leftBox&&rightBox){
+      if(leftBox.id===rightBox.id){const r=leftBox.lensesRemaining;const per=Math.floor(r/2);return {items:[{eye:'Sol',count:per},{eye:'Sağ',count:per}],spare:r%2};}
+      return {items:[{eye:'Sol',count:leftBox.lensesRemaining},{eye:'Sağ',count:rightBox.lensesRemaining}],spare:0};
+    }
+    if(left&&leftBox)return {items:[{eye:'Sol',count:leftBox.lensesRemaining}],spare:0};
+    if(right&&rightBox)return {items:[{eye:'Sağ',count:rightBox.lensesRemaining}],spare:0};
+    return null;
+  })();
   const sharedOpening=!!left&&!!right&&left.openedOn===right.openedOn&&(left.durationDaysSnapshot??leftBox?.durationDays)===(right.durationDaysSnapshot??rightBox?.durationDays);
   const showsProgress=active.some(p=>(p.durationDaysSnapshot??state.boxes.find(b=>b.id===p.boxId)?.durationDays??1)>1);
   const monthRecords=state.dailyStatuses.filter(c=>c.date.slice(0,7)===today.slice(0,7));
@@ -215,31 +321,42 @@ export default function Home() {
   const glow=owlLevel===3?{borderColor:'#E6A0A7',shadowColor:'#E24455',shadowOpacity:.3,shadowRadius:16,elevation:6}:owlLevel===2?{borderColor:'#E6C48F',shadowColor:'#E9A641',shadowOpacity:.23,shadowRadius:13,elevation:4}:{borderColor:'#C6DCF6',shadowColor:'#7AADE8',shadowOpacity:.14,shadowRadius:10,elevation:3};
   const answerOptions=[{value:'worn',title:'Taktım',icon:'checkmark-circle-outline' as const,selectedColor:colors.right},{value:'notWorn',title:'Takmadım',icon:'close-circle-outline' as const,selectedColor:palette.notWornSelected},{value:'glasses',title:'Gözlük',icon:'glasses-outline' as const,selectedColor:palette.glasses}];
   const onToday=activePage==='today';
-  return <Screen dense background={<AmbientBackground/>}>
-    <View style={{flexDirection:'row',justifyContent:'space-between',alignItems:'flex-start',gap:8}}>
-      <View style={{gap:4,flex:1,minWidth:0,paddingTop:2}}>
-        <View style={{flexDirection:'row',alignItems:'center',gap:8}}><Svg width={44} height={26} viewBox="0 0 58 34"><Ellipse cx={21} cy={15} rx={17} ry={9} transform="rotate(-25 21 15)" fill="#EAF5FF" stroke="#1683E8" strokeWidth={2}/><Ellipse cx={38} cy={20} rx={17} ry={9} transform="rotate(-25 38 20)" fill="#EAF5FF" stroke="#1683E8" strokeWidth={2}/></Svg><Copy size={22} bold style={{color:colors.ink}}>Lensim</Copy><View style={{flex:1}}/><Pressable accessibilityRole="button" accessibilityLabel="Bildirim ayarları" hitSlop={6} onPress={()=>router.push('/settings/notifications')} style={{padding:6}}><Ionicons name="notifications-outline" size={22} color={colors.ink}/></Pressable></View>
-        <Copy size={30} bold style={{color:colors.ink,lineHeight:36,marginTop:6}}>{greeting}</Copy>
-        <Copy size={15} mono style={{color:'#405B86'}}>{parseDate(today).toLocaleDateString('tr-TR',{day:'numeric',month:'long',weekday:'long'})}</Copy>
+  return <Screen dense background={<AmbientBackground/>} onViewportLayout={e=>setViewportHeight(Math.round(e.nativeEvent.layout.height))}>
+    {/* Header: logo left / bell right on the first row; greeting + date left, owl to their right. The owl reaches up into the logo row but stays left of the bell. */}
+    <View>
+      <View style={{flexDirection:'row',alignItems:'center',gap:8,minHeight:tight?36:40}}>
+        <Svg width={44} height={26} viewBox="0 0 58 34"><Ellipse cx={21} cy={15} rx={17} ry={9} transform="rotate(-25 21 15)" fill="#EAF5FF" stroke="#1683E8" strokeWidth={2}/><Ellipse cx={38} cy={20} rx={17} ry={9} transform="rotate(-25 38 20)" fill="#EAF5FF" stroke="#1683E8" strokeWidth={2}/></Svg>
+        <Copy size={22} bold style={{color:colors.ink}}>Lensim</Copy>
+        <View style={{flex:1}}/>
+        <Pressable accessibilityRole="button" accessibilityLabel="Bildirim ayarları" hitSlop={6} onPress={()=>router.push('/settings/notifications')} style={{width:40,height:40,borderRadius:20,alignItems:'center',justifyContent:'center'}}><Ionicons name="notifications-outline" size={22} color={colors.ink}/></Pressable>
       </View>
-      <OwlBadge level={owlLevel} label={owlText}/>
+      <View style={{flexDirection:'row',alignItems:'center',gap:8}}>
+        <View style={{flex:1,minWidth:0,gap:2}}>
+          <Copy size={greetingSize} bold style={{color:colors.ink,lineHeight:Math.round(greetingSize*1.2)}}>{greeting}</Copy>
+          <Copy size={dateSize} mono style={{color:'#405B86'}}>{parseDate(today).toLocaleDateString('tr-TR',{day:'numeric',month:'long',weekday:'long'})}</Copy>
+        </View>
+        <View style={{marginRight:tucked?44:4,marginTop:tucked?-Math.round(owlSize*.22):0,marginBottom:-Math.round(owlSize*.12)}}><OwlBadge level={owlLevel} label={owlText} size={owlSize}/></View>
+      </View>
     </View>
     {active.length>0&&<View onLayout={onPagerLayout} style={{width:'100%'}}>
      <ScrollView ref={pager} horizontal pagingEnabled nestedScrollEnabled directionalLockEnabled showsHorizontalScrollIndicator={false} decelerationRate="fast" scrollEventThrottle={16} contentOffset={{x:activePage==='calendar'?pageWidth:0,y:0}} onScroll={onPagerScroll} onMomentumScrollEnd={onPagerEnd} onScrollEndDrag={Platform.OS==='web'?onPagerEnd:undefined} style={{width:pageWidth,flexGrow:0,height:pagerHeight}} contentContainerStyle={{alignItems:'flex-start'}}>
-     <View onLayout={measurePage('today')} aria-hidden={!onToday} importantForAccessibility={onToday?'auto':'no-hide-descendants'} style={{width:pageWidth,padding:4}}><View style={{backgroundColor:'#FFFFFF',borderWidth:1,borderRadius:16,paddingHorizontal:14,paddingTop:10,paddingBottom:16,gap:14,...glow}}>
+     <View onLayout={measurePage('today')} aria-hidden={!onToday} importantForAccessibility={onToday?'auto':'no-hide-descendants'} style={{width:pageWidth,padding:4}}><View style={{backgroundColor:'#FFFFFF',borderWidth:1,borderRadius:16,paddingHorizontal:14,paddingTop:tight?6:8,paddingBottom:tight?10:12,gap:tight?8:10,...glow}}>
         <View style={{flexDirection:'row',alignItems:'center',justifyContent:'space-between'}}>
-          <Copy size={13} bold mono style={{color:palette.inkSoft,letterSpacing:1}}>LENS KUTUN</Copy>
-          <PressScale accessibilityRole="button" accessibilityLabel="Lens döngüsü özetini aç" accessibilityHint="Paket süresi, stok ve takılan günler" hitSlop={6} onPress={()=>router.push('/cycle')} style={{width:40,height:40,borderRadius:20,backgroundColor:'#E8F2FF',borderWidth:1,borderColor:'#C6DCF6',alignItems:'center',justifyContent:'center'}}><Ionicons name="arrow-forward" size={20} color="#0754C8"/></PressScale>
+          <Copy size={15} bold mono style={{color:palette.inkSoft,letterSpacing:1}}>LENS KUTUN</Copy>
+          <PressScale accessibilityRole="button" accessibilityLabel="Lens döngüsü özetini aç" accessibilityHint="Paket süresi, stok ve takılan günler" hitSlop={8} onPress={()=>router.push('/cycle')} style={{width:36,height:36,borderRadius:18,backgroundColor:'#E8F2FF',borderWidth:1,borderColor:'#C6DCF6',alignItems:'center',justifyContent:'center'}}><Ionicons name="arrow-forward" size={20} color="#0754C8"/></PressScale>
         </View>
-        <LensCaseArt left={left} right={right} today={today} estimate={pageWidth-8-30}/>
-        {sharedOpening&&left&&right&&<CombinedSummary left={left} right={right} checkIns={state.checkIns} today={today} boxes={state.boxes} separateEyes={state.settings.separateEyeCalendars}/>}
+        <View style={{marginHorizontal:-10}}><LensCaseArt left={left} right={right} today={today} estimate={pageWidth-18} maxWidth={artMaxWidth}/></View>
+        {activeToday.length>0&&<TodayAnswer status={markedStatus} monthWear={monthWear} options={answerOptions} showIcons={(pageWidth-52)/3>=92} onSelect={value=>saveStatus(value)}/>}
+        {sharedOpening&&left&&right&&<CombinedSummary left={left} right={right} checkIns={state.checkIns} today={today} boxes={state.boxes} separateEyes={state.settings.separateEyeCalendars} compact={tight}/>}
         {!sharedOpening&&(left||right)&&<View style={{flexDirection:'row',gap:14}}>{left&&<CaseSummary pack={left} checkIns={state.checkIns} today={today} compact/>}{right&&<CaseSummary pack={right} checkIns={state.checkIns} today={today} compact/>}</View>}
         {showsProgress&&<ProgressLegend/>}
-        <View style={{flexDirection:'row',gap:12,borderTopWidth:1,borderColor:'#D6E5F6',paddingTop:12}}>
-          {left&&<Pressable accessibilityRole="button" onPress={()=>router.push({pathname:'/package/[id]',params:{id:left.id}})} style={{flex:1,minWidth:0}}><Copy size={14} bold mono style={{color:colors.leftText}}>SOL · {shortDate(left.openedOn)}</Copy><Copy size={15} style={{color:colors.ink}}>{leftBox?.name}</Copy>{leftBox&&<Copy size={14} style={{color:palette.inkSoft}}>Kutuda {leftBox.lensesRemaining} lens</Copy>}</Pressable>}
-          {right&&<Pressable accessibilityRole="button" onPress={()=>router.push({pathname:'/package/[id]',params:{id:right.id}})} style={{flex:1,minWidth:0,alignItems:'flex-end'}}><Copy size={14} bold mono style={{color:colors.right}}>SAĞ · {shortDate(right.openedOn)}</Copy><Copy size={15} style={{color:colors.ink,textAlign:'right'}}>{rightBox?.name}</Copy>{rightBox&&rightBox.id!==leftBox?.id&&<Copy size={14} style={{color:palette.inkSoft}}>Kutuda {rightBox.lensesRemaining} lens</Copy>}</Pressable>}
+        <View style={{borderTopWidth:1,borderColor:'#D6E5F6',paddingTop:4,gap:0}}>
+          <View style={{flexDirection:'row',gap:12}}>
+            {left&&<Pressable accessibilityRole="button" accessibilityLabel={`Sol paket, ${shortDate(left.openedOn)} açıldı`} hitSlop={6} onPress={()=>router.push({pathname:'/package/[id]',params:{id:left.id}})} style={{flex:1,minWidth:0,minHeight:36,justifyContent:'center'}}><Copy size={12} bold mono style={{color:colors.leftText}}>SOL · {shortDate(left.openedOn)}</Copy></Pressable>}
+            {right&&<Pressable accessibilityRole="button" accessibilityLabel={`Sağ paket, ${shortDate(right.openedOn)} açıldı`} hitSlop={6} onPress={()=>router.push({pathname:'/package/[id]',params:{id:right.id}})} style={{flex:1,minWidth:0,minHeight:36,justifyContent:'center',alignItems:'flex-end'}}><Copy size={12} bold mono style={{color:colors.right}}>SAĞ · {shortDate(right.openedOn)}</Copy></Pressable>}
+          </View>
         </View>
-      </View><View style={{minHeight:52,flexDirection:'row',alignItems:'center',justifyContent:'space-between',paddingHorizontal:4,marginTop:4}}><Pressable accessibilityRole="button" accessibilityLabel="Takvime kaydır" onPress={()=>goToPage('calendar')} style={{minHeight:44,paddingHorizontal:14,borderRadius:999,backgroundColor:'#E8F2FF',alignItems:'center',justifyContent:'center',flexDirection:'row',gap:6}}><Copy size={14} bold style={{color:'#0754C8'}}>Takvim için kaydır</Copy><Ionicons name="arrow-forward" size={16} color="#0754C8"/></Pressable><View style={{flexDirection:'row',alignItems:'center',gap:5}}><View style={{width:8,height:8,borderRadius:4,backgroundColor:'#0754C8'}}/><View style={{width:8,height:8,borderRadius:4,backgroundColor:'#AFC8E8'}}/><Copy size={14} muted>2 sayfadan 1’i</Copy></View></View></View>
+      </View></View>
      <View onLayout={measurePage('calendar')} aria-hidden={onToday} importantForAccessibility={onToday?'no-hide-descendants':'auto'} style={{width:pageWidth,padding:4}}><Card style={{borderRadius:16,padding:14,gap:10,...glow}}><View style={{flexDirection:'row',justifyContent:'space-between',alignItems:'center'}}><Pressable accessibilityRole="button" accessibilityLabel="Önceki ay" onPress={()=>setMonth(addMonths(month,-1))} style={{width:48,height:48,alignItems:'center',justifyContent:'center'}}><Ionicons name="chevron-back" size={24} color={colors.ink}/></Pressable><Copy size={16} bold>{firstDay.toLocaleDateString('tr-TR',{month:'long',year:'numeric'})}</Copy><Pressable accessibilityRole="button" accessibilityLabel="Sonraki ay" disabled={month.slice(0,7)>=today.slice(0,7)} onPress={()=>setMonth(addMonths(month,1)>today.slice(0,7)+'-01'?today.slice(0,7)+'-01':addMonths(month,1))} style={{width:48,height:48,alignItems:'center',justifyContent:'center',opacity:month.slice(0,7)>=today.slice(0,7)?.3:1}}><Ionicons name="chevron-forward" size={24} color={colors.ink}/></Pressable></View>
       <View style={{flexDirection:'row'}}>{['Pt','Sa','Ça','Pe','Cu','Ct','Pz'].map(d=><View key={d} style={{flex:1,alignItems:'center'}}><Copy size={14} muted>{d}</Copy></View>)}</View>
       <View style={{flexDirection:'row',flexWrap:'wrap'}}>{calendarDays.map(day=>{const entry=entryForDay(day);const tone=dayTone(entry);const isSelected=selectedDay===day;return <Pressable key={day} accessibilityRole="button" accessibilityLabel={`${formatDate(day)} · ${tone.label}`} accessibilityState={{selected:isSelected}} onPress={()=>setSelectedDay(day)} style={{width:'14.285%',height:48,padding:2,opacity:day.slice(0,7)===month.slice(0,7)?1:.35}}><View style={{flex:1,borderRadius:10,alignItems:'center',justifyContent:'center',backgroundColor:tone.fill,borderWidth:isSelected?2:entry?.automatic?1:0,borderStyle:entry?.automatic&&!isSelected?'dashed':'solid',borderColor:isSelected?colors.ink:'#7C93B5'}}><Copy size={15} bold={day===today||isSelected} style={{color:tone.text,lineHeight:18}}>{Number(day.slice(-2))}</Copy>{entry?.status==='glasses'&&<Ionicons name="glasses-outline" size={11} color={tone.text}/>}</View></Pressable>})}</View>
@@ -251,13 +368,9 @@ export default function Home() {
      </Card><View style={{minHeight:52,flexDirection:'row',alignItems:'center',justifyContent:'space-between',paddingHorizontal:4}}><View style={{flexDirection:'row',alignItems:'center',gap:5}}><View style={{width:8,height:8,borderRadius:4,backgroundColor:'#AFC8E8'}}/><View style={{width:8,height:8,borderRadius:4,backgroundColor:'#0754C8'}}/><Copy size={14} muted>2 sayfadan 2’si</Copy></View><Pressable accessibilityRole="button" accessibilityLabel="Lens kutusuna kaydır" onPress={()=>goToPage('today')} style={{minHeight:44,paddingHorizontal:14,borderRadius:999,backgroundColor:'#E8F2FF',alignItems:'center',justifyContent:'center',flexDirection:'row',gap:6}}><Ionicons name="arrow-back" size={16} color="#0754C8"/><Copy size={14} bold style={{color:'#0754C8'}}>Lens kutusu</Copy></Pressable></View></View>
     </ScrollView></View>}
     {!active.length&&<Card style={{borderRadius:16,borderColor:'#BBD5F1'}}><Copy size={22} bold style={{color:colors.ink}}>İlk lens paketini ekle</Copy><Copy>Önce kutunu ve hangi göz için olduğunu seç. Sayım açılış gününden başlar.</Copy><Button title="İlk lens paketini ekle" icon="add" onPress={()=>router.push('/package/new')}/></Card>}
-    {activeToday.length>0&&<View style={{gap:9}}>
-      <View style={{flexDirection:'row',alignItems:'center',gap:8}}><Copy bold size={18} style={{flex:1,color:colors.ink}}>Bugün lens taktın mı?</Copy><Copy size={14} muted>{monthWear} gün bu ay</Copy></View>
-      <SegmentedControl label="Bugünkü lens kullanımı" selected={markedStatus??'none'} onChange={value=>saveStatus(value as 'worn'|'notWorn'|'glasses')} options={answerOptions}/>
-      <Copy size={14} muted>Cevap iki göz için birlikte kaydedilir.</Copy>
-    </View>}
 
-    {active.length>0&&<Button title="Yeni paket açtım" secondary icon="add" onPress={()=>router.push('/package/new')}/>}
-    {!!autoLine&&<Card style={{borderRadius:12,borderColor:'#B9D1F3',backgroundColor:'#F3F8FF'}}><Copy bold>{autoLine}</Copy>{yesterdayAuto.length>0?<View style={{flexDirection:'row',gap:8}}><View style={{flex:1}}><Button title="Dün taktım" secondary onPress={()=>changeYesterday('worn')}/></View><View style={{flex:1}}><Button title="Dün takmadım" secondary onPress={()=>changeYesterday('notWorn')}/></View></View>:<Button title="Takvimde kontrol et" secondary onPress={()=>goToPage('calendar')}/>}</Card>}
+    {/* Spare-lens stock sits with the action that uses it up. */}
+    {active.length>0&&<View style={{gap:4}}><Button title="Yeni paket açtım" secondary icon="add" onPress={()=>router.push('/package/new')}/>{stock&&<StockRow items={stock.items} spare={stock.spare}/>}</View>}
+    {!!autoLine&&<Card style={{borderRadius:14,borderColor:'#B9D1F3',backgroundColor:'#F3F8FF',padding:14,gap:10}}><Copy bold size={15} style={{color:colors.ink,lineHeight:20}}>{autoLine}</Copy>{yesterdayAuto.length>0?<View style={{flexDirection:'row',gap:8}}><QuietAction title="Dün taktım" onPress={()=>changeYesterday('worn')}/><QuietAction title="Dün takmadım" onPress={()=>changeYesterday('notWorn')}/></View>:<QuietAction title="Takvimde kontrol et" onPress={()=>goToPage('calendar')}/>}</Card>}
   </Screen>;
 }

@@ -13,7 +13,7 @@
   },
   {
     "title": "Saklama, güvenlik ve silme",
-    "body": "Veriler uygulamanın cihaz üzerindeki özel alanında saklanır. Sunucuda veya bulutta yedek bulunmaz; Android uygulama yedeklemesi kapalıdır. Telefon değiştirmeden veya uygulamayı kaldırmadan önce Ayarlar → Veri yedeği bölümünden yedek dosyası al. Yedek dosyası göz numaralarını da içerir; onu güvenli bir yerde sakla. Bütün kayıtlarını bu ekrandaki silme işlemiyle kaldırabilirsin."
+    "body": "Veriler uygulamanın cihaz üzerindeki özel alanında saklanır. Lensim’in sunucusu veya otomatik bulut yedeği yoktur; Android uygulama yedeklemesi kapalıdır. iPhone’da iCloud cihaz yedeği açıksa iOS, uygulama verilerini kendi cihaz yedeğine dahil edebilir; bu Lensim’in gönderdiği bir yedek değildir. Web önizlemesinde kayıtlar yalnızca o tarayıcıda saklanır. Telefon değiştirmeden veya uygulamayı kaldırmadan önce Ayarlar → Veri yedeği bölümünden yedek dosyası al. Yedek dosyası göz numaralarını da içerir; onu güvenli bir yerde sakla. Bütün kayıtlarını bu ekrandaki silme işlemiyle kaldırabilirsin."
   },
   {
     "title": "İzinler",

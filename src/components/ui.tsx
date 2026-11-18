@@ -10,13 +10,13 @@ export function useColors() { return useTheme(useApp().state.settings); }
 export function Copy({ children, size = 17, muted = false, bold = false, mono = false, style }: React.PropsWithChildren<{ size?: number; muted?: boolean; bold?: boolean; mono?: boolean; style?: StyleProp<import('react-native').TextStyle> }>) {
   const t = useColors(); return <Text style={[{ color: muted ? t.muted : t.text, fontSize: size, fontWeight: bold ? '700' : '400', fontFamily:mono?(bold?'IBMPlexMono_600SemiBold':'IBMPlexMono_400Regular'):(bold?'Archivo_700Bold':'Archivo_400Regular'), lineHeight: size * 1.4 }, style]}>{children}</Text>;
 }
-/** `background` renders behind the scrolling content; `dense` narrows the side gutter to 16 for full-width cards. */
-export function Screen({ children, title, subtitle, back = false, background, dense = false, scrollRef }: React.PropsWithChildren<{ title?: string; subtitle?: string; back?: boolean; background?: React.ReactNode; dense?: boolean; scrollRef?: React.RefObject<import('react-native').ScrollViewInstance | null> }>) {
+/** `background` renders behind the scrolling content; `dense` narrows the side gutter to 16 and tightens the top padding and item gap so more fits above the fold. */
+export function Screen({ children, title, subtitle, back = false, background, dense = false, scrollRef, onViewportLayout }: React.PropsWithChildren<{ title?: string; subtitle?: string; back?: boolean; background?: React.ReactNode; dense?: boolean; scrollRef?: React.RefObject<import('react-native').ScrollViewInstance | null>; onViewportLayout?: (e: import('react-native').LayoutChangeEvent) => void }>) {
   const t = useColors();
   return <SafeAreaView style={{ flex: 1, backgroundColor: t.background }} edges={['top','left','right']}>
     {background}
     <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
-      <ScrollView ref={scrollRef} keyboardShouldPersistTaps="handled" contentContainerStyle={[styles.screen, dense && { paddingHorizontal: 16 }]}>
+      <ScrollView ref={scrollRef} onLayout={onViewportLayout} keyboardShouldPersistTaps="handled" contentContainerStyle={[styles.screen, dense && { paddingHorizontal: 16, paddingTop: 10, gap: 10 }]}>
         {back && <Pressable accessibilityRole="button" accessibilityLabel="Geri" onPress={() => router.canGoBack() ? router.back() : router.replace('/')} style={styles.back}><Ionicons name="arrow-back" size={23} color={t.text}/><Copy>Geri</Copy></Pressable>}
         {title && <View style={{ marginBottom: 8 }}><Copy size={30} bold>{title}</Copy>{subtitle && <Copy muted style={{ marginTop: 6 }}>{subtitle}</Copy>}</View>}
         {children}

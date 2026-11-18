@@ -105,32 +105,24 @@ class SettingsScreen extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 24),
-          const SectionLabel('HESAP VE YEDEK'),
+          const SectionLabel('YEREL YEDEK'),
           SoftCard(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Text('Verilerin şu an yalnızca bu telefonda.', style: LensType.text(size: 15, color: c.ink)),
-                const SizedBox(height: 12),
-                OutlinedButton.icon(
-                  onPressed: () => showLensSnack(context, 'Google ile giriş ve bulut yedeği 1.1 sürümünde geliyor.'),
-                  icon: const Icon(Icons.account_circle_outlined),
-                  label: const Text('Google ile giriş yap'),
-                  style: OutlinedButton.styleFrom(
-                    minimumSize: const Size.fromHeight(52),
-                    foregroundColor: c.ink,
-                    side: BorderSide(color: c.ink, width: 1.5),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                  ),
+                Text(
+                  'Hesap veya internet gerekmez. Kayıtların bu telefonda kalır; bulut eşitlemesi yoktur. '
+                  'Yedek yalnızca sen dosyaya kaydettiğinde oluşturulur.',
+                  style: LensType.text(size: 15, color: c.ink),
                 ),
-                const SizedBox(height: 10),
+                const SizedBox(height: 12),
                 Row(
                   children: [
                     Expanded(
                       child: OutlinedButton(
                         onPressed: () => _export(context, s),
                         style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(48)),
-                        child: const Text('Dosyaya yedekle'),
+                        child: const Text('Yerel .json yedeği kaydet'),
                       ),
                     ),
                     const SizedBox(width: 8),

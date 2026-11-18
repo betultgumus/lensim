@@ -1,5 +1,5 @@
 import React,{useState} from 'react';
-import {Alert,View} from 'react-native';
+import {Alert,Platform,View} from 'react-native';
 import {Button,Card,Copy,Screen,useColors} from '../../src/components/ui';
 import {useApp,errorText} from '../../src/state/AppContext';
 import {validateState} from '../../src/domain/reducer';
@@ -32,10 +32,10 @@ export default function Backup(){
    setMessage('Yedek geri yüklendi. Yanlış dosyayı seçtiysen aşağıdan önceki kayıtlarına dönebilirsin.');setUndo({revision:next.revision,previous});
   }).catch(e=>Alert.alert('Geri yüklenemedi',errorText(e)));}}]);
  };
- return <Screen title="Veri yedeği" subtitle="Kayıtların yalnızca bu telefonda durur." back>
+ return <Screen title="Veri yedeği" subtitle={Platform.OS==='web'?'Kayıtların yalnızca bu tarayıcıda durur.':'Kayıtların yalnızca bu telefonda durur.'} back>
   <View style={{padding:16,borderWidth:1,borderColor:t.border,backgroundColor:t.soft,borderRadius:12,gap:8}}>
    <Copy bold>Yedek senin elinde</Copy>
-   <Copy muted>Lensim internete veri göndermez ve otomatik bulut yedeği yoktur. Telefon değiştirmeden veya uygulamayı silmeden önce yedek dosyası al.</Copy>
+   <Copy muted>Lensim internete veri göndermez, hesap kullanmaz ve otomatik bulut yedeği yoktur. Yedek yalnızca sen “Yedek dosyası kaydet”e bastığında oluşur. Telefon değiştirmeden veya uygulamayı silmeden önce yedek dosyası al.</Copy>
   </View>
   <Card style={{gap:8}}><Copy bold>Yedek dosyası hakkında</Copy><Copy size={15}>Dosya türü: <Copy size={15} bold mono>.json</Copy> (ör. lensim-yedek-2026-11-17.json). PDF değildir; Lensim’e geri yüklemek için kullanılır.</Copy><Copy size={15}>İçinde paketlerin, günlük kayıtların ve reçete / göz numaraların bulunur. Dosya şifrelenmez; güvendiğin bir yerde sakla, başkalarıyla paylaşma.</Copy></Card>
   <Button title="Yedek dosyası kaydet (.json)" icon="download-outline" onPress={exportData}/>

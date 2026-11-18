@@ -4,7 +4,17 @@
     "strict": true,
     "noUncheckedIndexedAccess": true,
     "allowImportingTsExtensions": true,
-    "paths": { "@/*": ["./src/*"] }
+    "paths": {
+      "@/*": [
+        "./src/*"
+      ]
+    }
   },
-  "include": ["app/**/*.tsx", "src/**/*.ts", "src/**/*.tsx", "widgets/**/*.tsx", "app.config.ts", "expo-env.d.ts"]
+  "include": [
+    "app/**/*.tsx",
+    "src/**/*.ts",
+    "src/**/*.tsx",
+    "widgets/**/*.tsx",
+    "app.config.ts"
+  ]
 }
