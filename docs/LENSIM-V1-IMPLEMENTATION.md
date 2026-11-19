@@ -29,7 +29,7 @@ Lensim stores health-related data (lens use, prescriptions), so it must work wit
 ## Still required before calling v1 complete
 
 - The Android/iOS notification action flow needs acceptance on physical devices, especially after force-stop, reboot and when the app process is not running. Expo action buttons currently foreground the app so its local database can record the answer.
-- The current native home-screen widgets still use the repository’s older cycle data and do not yet render the supplied Lensim package widget or provide a widget “Taktım” action.
+- Android home-screen widget (`modules/lens-widget`, local Expo module): reads the open packages through `src/domain/widget.ts` (same pairing, day count and owl thresholds as the home screen) and shows three looks — fresh (blue), change near (lavender), overdue (pink) — plus an empty card. The app writes ~62 precomputed days on every save, day change and resume; the widget switches days at 02.00 by itself and opens `/cycle` on tap. Still to do: acceptance on physical devices and launchers (sizes, TalkBack), a widget “Taktım” action and an iOS widget.
 - New-box management, separate right/left prescriptions, full backup file-picker restore on native platforms and English strings remain follow-up work.
 - No signed APK/AAB or IPA was built in this session. Store publication and iOS are later milestones; web export is only a browser preview, not an Android app build.
 

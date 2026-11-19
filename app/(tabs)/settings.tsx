@@ -1,10 +1,12 @@
-import React from 'react';
+import React,{useState} from 'react';
 import { Pressable, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import {router} from 'expo-router';
-import {Card,Copy,Screen,SegmentedControl,useColors} from '../../src/components/ui';
-import {useApp} from '../../src/state/AppContext';
+import {Button,Card,Copy,Screen,SegmentedControl,Sheet,useColors} from '../../src/components/ui';
+import {useApp,showError} from '../../src/state/AppContext';
+import {shortDate} from '../../src/domain/dates';
 import {palette} from '../../src/design/dayTone';
+import {NotificationsPrompt,ReminderSummary,useNotificationAccess} from '../../src/components/ReminderSettings';
 
 /** Screen-local sizes: cards share one radius and a tighter padding; a section is title + secondary line, then its control. */
 const card={borderRadius:14,padding:14,gap:10} as const;
@@ -27,11 +29,49 @@ function SectionHead({title,detail}:{title:string;detail:string}){
   return <View style={{gap:2}}><Copy bold size={16} style={{lineHeight:21}}>{title}</Copy><Hint>{detail}</Hint></View>;
 }
 
-export default function Settings(){const {state,dispatch}=useApp();return <Screen>
+/**
+ * Changing the "unanswered day" default: apply it only from now on, or also to the days filled automatically
+ * before. Drawn by the app (not a system dialog), so both choices work the same on the web and on Android.
+ */
+function DefaultChoice({value,days,current,onChoose,onCancel}:{value:'worn'|'notWorn'|null;days:string[];current:'worn'|'notWorn';onChoose:(past:'update'|'keep')=>Promise<unknown>;onCancel:()=>void}){
+  if(!value||!days.length)return null;
+  const name=(v:'worn'|'notWorn')=>v==='worn'?'Taktım':'Takmadım';
+  const range=days.length===1?shortDate(days[0]!):`${shortDate(days[0]!)} – ${shortDate(days.at(-1)!)}`;
+  return <Sheet visible title={`Cevapsız günler “${name(value)}” sayılsın`} onClose={onCancel}>
+    <Copy size={15}>Bundan sonra cevap vermediğin günler “{name(value)}” sayılacak. Daha önce otomatik doldurulan <Copy size={15} bold>{days.length} gün</Copy> ({range}) şu an “{name(current)}” görünüyor; takvimde kesik çizgili günler bunlardır.</Copy>
+    <Copy size={14} muted>Kendi seçtiğin günler hangi seçeneği seçersen seç değişmez.</Copy>
+    <View style={{gap:10}}>
+      <Button title="Yalnızca bundan sonraki günlerde uygula" secondary outlined onPress={()=>onChoose('keep')}/>
+      <Copy size={13} muted>Bu {days.length} gün “{name(current)}” olarak kalır; sayaçlar değişmez.</Copy>
+      <Button title="Geçmiş günleri de güncelle" icon="refresh" onPress={()=>onChoose('update')}/>
+      <Copy size={13} muted>Bu {days.length} gün ({range}) “{name(value)}” olur; takvim ve lens sayaçları buna göre güncellenir.</Copy>
+      <Button title="Vazgeç" secondary onPress={onCancel}/>
+    </View>
+  </Sheet>;
+}
+
+export default function Settings(){const {state,dispatch}=useApp();const notifications=useNotificationAccess();
+ type Answer='worn'|'notWorn';
+ // Days filled automatically that would change with the new default. "Taktım" needs an open package on that day,
+ // the same rule the save uses. Days the person answered themselves are never in this list.
+ const changingDays=(target:Answer)=>state.dailyStatuses.filter(d=>d.automatic&&d.status!==target&&(target!=='worn'||state.packages.some(p=>p.openedOn<=d.date&&(!p.closedOn||d.date<=p.closedOn)))).map(d=>d.date).sort();
+ const [pending,setPending]=useState<Answer|null>(null);
+ const save=(value:Answer,pastAutomatic:'update'|'keep')=>dispatch({type:'settings',patch:{defaultAnswer:value},pastAutomatic}).then(()=>setPending(null));
+ const changeDefault=(value:Answer)=>{
+  if(value===state.settings.defaultAnswer)return;
+  // Nothing filled automatically would change: there is nothing to choose, save at once.
+  if(!changingDays(value).length){void save(value,'keep').catch(e=>showError(e));return;}
+  setPending(value);
+ };
+ const autoTotal=state.dailyStatuses.filter(d=>d.automatic).length;
+ return <Screen>
  <View style={{gap:4}}><Copy bold size={26} style={{lineHeight:32}}>Ayarlar</Copy><Copy muted size={14} style={{lineHeight:20}}>Takip şeklini ve yedeklerini yönet.</Copy></View>
- <Card style={card}><SectionHead title="Bir günü cevapsız bırakırsan" detail="Ertesi gün 02.00’de otomatik tamamlanır."/><SegmentedControl label="Cevapsız gün varsayılanı" selected={state.settings.defaultAnswer} onChange={value=>dispatch({type:'settings',patch:{defaultAnswer:value as 'worn'|'notWorn'}})} options={[{value:'worn',title:'Taktım say'},{value:'notWorn',title:'Takmadım say',selectedColor:palette.notWornSelected}]}/></Card>
+ <NotificationsPrompt notifications={notifications}/>
+ <ReminderSummary notifications={notifications} onEdit={()=>router.push('/settings/notifications')}/>
+ <Card style={card}><SectionHead title="Bir günü cevapsız bırakırsan" detail="Ertesi gün 02.00’de otomatik tamamlanır."/><SegmentedControl label="Cevapsız gün varsayılanı" selected={state.settings.defaultAnswer} onChange={value=>changeDefault(value as 'worn'|'notWorn')} options={[{value:'worn',title:'Taktım say'},{value:'notWorn',title:'Takmadım say',selectedColor:palette.notWornSelected}]}/>{autoTotal>0&&<Copy size={13} muted style={{lineHeight:18}}>Şu an {autoTotal} gün otomatik dolu. Varsayılanı değiştirirken bu günlerin de güncellenip güncellenmeyeceğini sen seçersin; kendi seçtiğin günler hiç değişmez.</Copy>}</Card>
+ <DefaultChoice value={pending} days={pending?changingDays(pending):[]} current={state.settings.defaultAnswer} onChoose={(past)=>save(pending!,past)} onCancel={()=>setPending(null)}/>
  <Card style={card}><SectionHead title="Takvim görünümü" detail="Sağ ve sol paketlerin açılışını ayrı işaretle."/><SegmentedControl label="Göz takvimi görünümü" selected={state.settings.separateEyeCalendars?'separate':'combined'} onChange={value=>dispatch({type:'settings',patch:{separateEyeCalendars:value==='separate'}})} options={[{value:'combined',title:'Birleşik'},{value:'separate',title:'Sağ · Sol ayrı'}]}/></Card>
- <Card style={listCard}><NavRow title="Göz numaralarım" detail="Lens ve gözlük reçeteleri" icon="glasses-outline" onPress={()=>router.push('/prescriptions')}/><NavRow title="Lens kutularım" detail="Adet, kutu adı ve süre" icon="albums-outline" onPress={()=>router.push('/settings/boxes')}/><NavRow title="Veri yedeği" detail="Yedek kaydet ve geri yükle" icon="save-outline" onPress={()=>router.push('/settings/backup')}/><NavRow title="Hatırlatmalar" detail="Onay saati ve paket uyarıları" icon="notifications-outline" onPress={()=>router.push('/settings/notifications')}/></Card>
+ <Card style={listCard}><NavRow title="Göz numaralarım" detail="Lens ve gözlük reçeteleri" icon="glasses-outline" onPress={()=>router.push('/prescriptions')}/><NavRow title="Lens kutularım" detail="Adet, kutu adı ve süre" icon="albums-outline" onPress={()=>router.push('/settings/boxes')}/><NavRow title="Veri yedeği" detail="Yedek kaydet ve geri yükle" icon="save-outline" onPress={()=>router.push('/settings/backup')}/></Card>
  <Copy size={13} muted style={{lineHeight:18}}>Lensim · Çevrimdışı kullanım desteklenir. Lens süresini kutu talimatına ve göz uzmanının önerisine göre belirle.</Copy>
  <Card style={listCard}><NavRow title="Gizlilik ve veriler" detail="Veri kullanımı ve silme" icon="shield-checkmark-outline" onPress={()=>router.push('/settings/privacy')}/></Card>
  </Screen>}

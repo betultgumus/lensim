@@ -1,3 +1,3 @@
 import type { AppState } from '../domain/types';
-/** Home-screen widgets are planned for a later version; V1 ships without them. */
+/** The home-screen widget is Android-only (see widgets.android.ts); iOS and web have nothing to update. */
 export async function syncWidgets(_state: AppState) {}

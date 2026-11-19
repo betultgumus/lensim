@@ -7,7 +7,7 @@ export type PackageSource = { boxId?: string; newBox?: LensBox };
 export type Action =
   | { type: 'setup'; plan: Plan; start: string; due?: string; id: string }
   | { type: 'completeOnboarding' }
-  | { type: 'settings'; patch: Partial<Settings> }
+  | { type: 'settings'; patch: Partial<Settings>; /** When the default answer changes: 'update' (default) also rewrites the days filled automatically before; 'keep' leaves them and applies the new default only to days filled from now on. */ pastAutomatic?: 'update' | 'keep' }
   | { type: 'module'; key: ModuleKey; enabled: boolean }
   | { type: 'separate'; enabled: boolean; copy: boolean }
   | { type: 'edit'; scope: Scope; plan: Plan; start: string; due?: string; brand: string; power: string }
@@ -29,8 +29,9 @@ export type Action =
   | { type:'editPackage';id:string;openedOn:string;durationDays:number;withPair?:boolean }
   | { type: 'closePackage'; id: string; date: string }
   | { type: 'checkIn'; id: string; packageId: string; date: string; status: 'worn' | 'notWorn' | 'glasses'; automatic?: boolean }
-  | { type: 'dailyStatus'; id:string; date:string; status:'worn'|'notWorn'|'glasses'; automatic?:boolean; moveOpening?:boolean }
+  | { type: 'dailyStatus'; id:string; date:string; status:'worn'|'notWorn'|'glasses'; automatic?:boolean; moveOpening?:boolean; /** "Taktım" before any package, keeping the opening date: only the day's answer is saved. */ keepOpening?:boolean }
   | { type:'bulkDailyStatus';id:string;dates:string[];status:'worn'|'notWorn'|'glasses' }
+  | { type:'autoFill';id:string }
   | { type: 'prescriptionRecord'; entry: PrescriptionRecord }
   | { type: 'deletePrescriptionRecord'; id:string }
   | { type: 'setBackup'; enabled: boolean }
@@ -48,14 +49,17 @@ function cloneState(state: AppState): AppState { return JSON.parse(JSON.stringif
  * the missing per-package records with the existing answer. This keeps manual corrections
  * intact when auto-fill or package edits regenerate records.
  */
-function setDailyStatus(state:AppState,id:string,date:string,status:'worn'|'notWorn'|'glasses',automatic:boolean,today:string,requiredPackageId?:string){
+function setDailyStatus(state:AppState,id:string,date:string,status:'worn'|'notWorn'|'glasses',automatic:boolean,today:string,requiredPackageId?:string,force=false,allowNoPackage=false){
   const fromAutomation=automatic;
   parseDate(date);if(date>today)throw new Error('Gelecek gün işaretlenemez.');if(!fromAutomation&&!isWithinEntryWindow(date,today))throw new Error('Geçmiş kullanım kaydı en fazla 30 gün geriye girilebilir.');
   const applicable=state.packages.filter(p=>p.openedOn<=date&&(!p.closedOn||date<=p.closedOn));
   if(requiredPackageId&&!applicable.some(p=>p.id===requiredPackageId))throw new Error('Bu tarih için açık lens paketi yok.');
   const day=state.dailyStatuses.find(d=>d.date===date);
-  if(fromAutomation&&day){status=day.status;automatic=day.automatic;}
-  if(status==='worn'&&!applicable.length)throw new Error('Lens takıldı kaydı için o gün açık bir paket bulunmalı.');
+  // `force` is only used when the default answer changes: it rewrites a day that is still automatic.
+  if(fromAutomation&&day&&!force){status=day.status;automatic=day.automatic;}
+  // A "worn" day outside every package is only kept when the person chose it (keeping the package opening date);
+  // recalculations keep such a manual day as it is.
+  if(status==='worn'&&!applicable.length&&!allowNoPackage&&!(fromAutomation&&day&&!day.automatic))throw new Error('Lens takıldı kaydı için o gün açık bir paket bulunmalı.');
   if(day){day.status=status;day.automatic=automatic;}else state.dailyStatuses.push({id,date,status,automatic});
   for(const pack of applicable){
     const existing=state.checkIns.find(c=>c.packageId===pack.id&&c.date===date);const box=state.boxes.find(b=>b.id===pack.boxId)!;let stockUsed=existing?.stockUsed??existing?.status==='worn';
@@ -80,6 +84,31 @@ export function packagesOpenedAfter(state:AppState,date:string):LensPackage[]{
     if(next&&!state.packages.some(p=>p.eye===eye&&p.id!==next.id&&p.openedOn<next.openedOn&&(!p.closedOn||p.closedOn>=date)))result.push(next);
   }
   return result;
+}
+/**
+ * Days that the automatic answer should fill: every day from a package's start up to yesterday
+ * that has no record for that package. A package's start is its opening day, except when the
+ * package was added to Lensim later with a backdated opening: the days before it was added were
+ * never asked about, so they stay unanswered (the home screen asks the person to mark them)
+ * instead of being filled silently the moment the package is saved.
+ */
+export function missingAutoDays(state:AppState,today:string):string[]{
+  const through=addDays(today,-1);const result=new Set<string>();
+  for(const pack of state.packages){
+    if(pack.boxId.startsWith('legacy-box-'))continue;
+    const from=pack.createdOn&&pack.createdOn>pack.openedOn?pack.createdOn:pack.openedOn;
+    const last=pack.closedOn&&pack.closedOn<through?pack.closedOn:through;
+    for(let date=from;date<=last;date=addDays(date,1))if(!state.checkIns.some(c=>c.packageId===pack.id&&c.date===date))result.add(date);
+  }
+  return [...result].sort();
+}
+/** Days inside an open package (up to yesterday) that still have no answer at all, e.g. backdated days. */
+export function unansweredDays(state:AppState,today:string):string[]{
+  const through=addDays(today,-1);const result=new Set<string>();const answered=new Set(state.dailyStatuses.map(d=>d.date));
+  for(const pack of state.packages.filter(p=>!p.closedOn)){
+    for(let date=pack.openedOn<addDays(today,-30)?addDays(today,-30):pack.openedOn;date<=through;date=addDays(date,1))if(!answered.has(date))result.add(date);
+  }
+  return [...result].sort();
 }
 /** Re-mirrors existing daily answers from a date onward without changing any answer. */
 function regenerateFrom(state:AppState,from:string,today:string){
@@ -112,9 +141,19 @@ export function transition(previous: AppState, action: Action, today = dateOnly(
       state.cycles = [{ id: action.id, profileId: 'both', start: action.start, due, completed: null, plan: action.plan }];
       state.onboarded = true; break;
     }
-    case 'settings':
+    case 'settings': {
       if (action.patch.notificationTime) timeParts(action.patch.notificationTime);
-      state.settings = { ...state.settings, ...action.patch }; break;
+      if (action.patch.nightReminderTime) timeParts(action.patch.nightReminderTime);
+      const changedDefault = action.patch.defaultAnswer && action.patch.defaultAnswer !== state.settings.defaultAnswer ? action.patch.defaultAnswer : null;
+      state.settings = { ...state.settings, ...action.patch };
+      // Automatic days mean "unanswered, counted with the default". When the default changes they follow it
+      // unless the person chose to keep them; days the person answered (automatic === false) are never touched.
+      if (changedDefault && action.pastAutomatic !== 'keep') for (const day of state.dailyStatuses.filter(d => d.automatic && d.status !== changedDefault)) {
+        if (changedDefault === 'worn' && !state.packages.some(p => p.openedOn <= day.date && (!p.closedOn || day.date <= p.closedOn))) continue;
+        setDailyStatus(state, day.id, day.date, changedDefault, true, today, undefined, true);
+      }
+      break;
+    }
     case 'completeOnboarding': state.onboarded = true; break;
     case 'module':
       if (action.key === 'separate') throw new Error('Ayrı takip geçişini onay ekranından yap.');
@@ -211,7 +250,7 @@ export function transition(previous: AppState, action: Action, today = dateOnly(
       state.journal.push(action.entry); break;
     case 'deleteJournal': state.journal = state.journal.filter(e => e.id !== action.id); break;
     case 'addBox': {
-      if (!action.box.name.trim() || !Number.isInteger(action.box.durationDays) || action.box.durationDays < 1 || !Number.isInteger(action.box.lensesTotal) || action.box.lensesTotal < 1) throw new Error('Kutu bilgilerini kontrol et.');
+      if (!action.box.name.trim() || !Number.isInteger(action.box.durationDays) || action.box.durationDays < 1 || !Number.isInteger(action.box.lensesTotal) || action.box.lensesTotal < 1) throw new Error('Kutu bilgileri eksik: kutu adını, kutudaki lens sayısını (en az 1) ve kullanım süresini kontrol et.');
       if (state.boxes.some(b => b.id === action.box.id)) return previous;
       state.boxes.push(action.box); break;
     }
@@ -232,13 +271,13 @@ export function transition(previous: AppState, action: Action, today = dateOnly(
       // Reusable lenses consume a backup when the package is opened. Daily lenses
       // consume one lens per worn day, so their stock changes in checkIn below.
       if (box.durationDays > 1) box.lensesRemaining -= 1;
-      state.packages.push({ id: action.id, boxId: box.id, eye: action.eye, openedOn: action.date, closedOn: null, durationDaysSnapshot:box.durationDays,lensTypeSnapshot:box.lensType,prescriptionSnapshot:JSON.parse(JSON.stringify(box.prescription)) });
+      state.packages.push({ id: action.id, boxId: box.id, eye: action.eye, openedOn: action.date, closedOn: null, createdOn: today, durationDaysSnapshot:box.durationDays,lensTypeSnapshot:box.lensType,prescriptionSnapshot:JSON.parse(JSON.stringify(box.prescription)) });
       for(const day of state.dailyStatuses.filter(d=>d.date>=action.date))setDailyStatus(state,day.id,day.date,day.status,day.automatic,today);break;
     }
     case 'openPackages': {
       parseDate(action.date);
       if (!isWithinEntryWindow(action.date,today)) throw new Error('Paket açılış tarihi bugün ile en fazla 30 gün öncesi arasında olmalı.');
-      if (!action.eyes.length || new Set(action.eyes).size!==action.eyes.length || action.ids.length!==action.eyes.length || action.ids.some(id=>state.packages.some(p=>p.id===id))) throw new Error('Göz seçimini kontrol et.');
+      if (!action.eyes.length || new Set(action.eyes).size!==action.eyes.length || action.ids.length!==action.eyes.length || action.ids.some(id=>state.packages.some(p=>p.id===id))) throw new Error('Göz seçimi anlaşılmadı. “İkisi”, “Sağ” veya “Sol” seçeneğinden birini seçip tekrar dene.');
       const sources=action.boxes??action.eyes.map(()=>({boxId:action.boxId,newBox:action.newBox}));
       if(sources.length!==action.eyes.length)throw new Error('Her göz için bir kutu seç.');
       const created=new Set<string>();const resolved:{box:LensBox;isNew:boolean}[]=[];
@@ -248,13 +287,15 @@ export function transition(previous: AppState, action: Action, today = dateOnly(
           const b=src.newBox;
           if(created.has(b.id))box=state.boxes.find(x=>x.id===b.id);
           else{
-            if(!b.id||state.boxes.some(existing=>existing.id===b.id)||!b.name.trim()||!Number.isInteger(b.durationDays)||b.durationDays<1||!Number.isInteger(b.lensesTotal)||b.lensesTotal<1||b.lensesRemaining!==b.lensesTotal||!Array.isArray(b.eyes)||!b.eyes.length||b.eyes.some(e=>!['right','left'].includes(e)))throw new Error('Kutu bilgilerini kontrol et.');
+            if(!b.id||state.boxes.some(existing=>existing.id===b.id)||!b.name.trim()||!Number.isInteger(b.durationDays)||b.durationDays<1||!Number.isInteger(b.lensesTotal)||b.lensesTotal<1||b.lensesRemaining!==b.lensesTotal||!Array.isArray(b.eyes)||!b.eyes.length||b.eyes.some(e=>!['right','left'].includes(e)))throw new Error('Kutu bilgileri eksik: kutu adını, kutudaki lens sayısını (en az 1) ve kullanım süresini kontrol et.');
             box=JSON.parse(JSON.stringify(b)) as LensBox;state.boxes.push(box);created.add(b.id);
             const filled=Object.values(b.prescription.right??{}).some(Boolean)||Object.values(b.prescription.left??{}).some(Boolean)||Boolean(b.prescription.color);
             if(filled)state.prescriptionHistory.push({id:`lens-rx-${b.id}`,date:action.date,kind:'lens',eyes:[...b.eyes],values:{...(b.prescription.right?{right:{...b.prescription.right}}:{}),...(b.prescription.left?{left:{...b.prescription.left}}:{})}});
           }
         } else box=state.boxes.find(b=>b.id===src.boxId);
-        if(!box||!box.eyes.includes(action.eyes[i]!))throw new Error('Seçilen kutu bu gözler için uygun değil.');
+        if(!box)throw new Error('Seçilen kutu bulunamadı.');
+        // Per-eye selection ("Her göze ayrı") may use any saved box for either eye; the box then serves that eye too.
+        if(!box.eyes.includes(action.eyes[i]!)){if(action.boxes&&!src.newBox)box.eyes.push(action.eyes[i]!);else throw new Error('Seçilen kutu bu gözler için uygun değil.');}
         resolved.push({box,isNew:Boolean(src.newBox)});
       }
       const existing=action.eyes.map(eye=>state.packages.find(p=>p.eye===eye&&!p.closedOn));
@@ -272,7 +313,7 @@ export function transition(previous: AppState, action: Action, today = dateOnly(
       for(let i=0;i<action.eyes.length;i++){
         const {box}=resolved[i]!;const duration=durations[i]!;
         if(duration>1)box.lensesRemaining-=1;
-        state.packages.push({id:action.ids[i]!,boxId:box.id,eye:action.eyes[i]!,openedOn:action.date,closedOn:null,durationDaysSnapshot:duration,lensTypeSnapshot:box.lensType,prescriptionSnapshot:JSON.parse(JSON.stringify(box.prescription)),...(action.eyes.length===2&&action.pairId?{pairId:action.pairId}:{})});
+        state.packages.push({id:action.ids[i]!,boxId:box.id,eye:action.eyes[i]!,openedOn:action.date,closedOn:null,createdOn:today,durationDaysSnapshot:duration,lensTypeSnapshot:box.lensType,prescriptionSnapshot:JSON.parse(JSON.stringify(box.prescription)),...(action.eyes.length===2&&action.pairId?{pairId:action.pairId}:{})});
       }
       regenerateFrom(state,action.date,today);
       state.onboarded=true;break;
@@ -333,11 +374,16 @@ export function transition(previous: AppState, action: Action, today = dateOnly(
         for(const pack of moved)pack.openedOn=action.date;
         regenerateFrom(state,action.date,today);
       }
-      setDailyStatus(state,action.id,action.date,action.status,action.automatic??false,today);break;
+      setDailyStatus(state,action.id,action.date,action.status,action.automatic??false,today,undefined,false,Boolean(action.keepOpening));break;
     }
     case 'bulkDailyStatus': {
       const dates=[...new Set(action.dates)].sort();if(!dates.length)throw new Error('Önce takvimden en az bir gün seç.');
       for(const date of dates)setDailyStatus(state,`${action.id}-${date}`,date,action.status,false,today);
+      break;
+    }
+    case 'autoFill': {
+      const dates=missingAutoDays(state,today);if(!dates.length)return previous;
+      for(const date of dates)setDailyStatus(state,`${action.id}-${date}`,date,state.settings.defaultAnswer,true,today);
       break;
     }
     case 'prescriptionRecord': {
@@ -359,7 +405,7 @@ export function validateState(value: unknown): AppState {
   if (!raw || raw.version !== 1 || !Number.isInteger(raw.revision) || !raw.settings || !raw.modules || !Array.isArray(raw.cycles) || !Array.isArray(raw.profiles) || !Array.isArray(raw.journal) || !Array.isArray(raw.auxiliary) || !Array.isArray(raw.movements) || !raw.stock) throw new Error('Yerel veriler okunamadı. Veriler korunuyor.');
   const s = raw as AppState;
   Object.assign(s.settings, { defaultAnswer: s.settings.defaultAnswer ?? 'worn', backupEnabled: s.settings.backupEnabled ?? false });
-  Object.assign(s.settings,{separateEyeCalendars:s.settings.separateEyeCalendars??false});
+  Object.assign(s.settings,{separateEyeCalendars:s.settings.separateEyeCalendars??false,nightReminder:s.settings.nightReminder??false,nightReminderTime:s.settings.nightReminderTime??'23:00'});
   s.boxes ??= []; s.packages ??= []; s.checkIns ??= []; s.dailyStatuses??=[];s.prescriptionHistory ??=[];
   // Preserve old cycle records by converting them into package records once.
   if (!s.packages.length && s.cycles.length) {
@@ -378,7 +424,7 @@ export function validateState(value: unknown): AppState {
   }
   for(const pack of s.packages){const box=s.boxes.find(b=>b.id===pack.boxId);if(box){pack.durationDaysSnapshot??=box.durationDays;pack.lensTypeSnapshot??=box.lensType;pack.prescriptionSnapshot??=JSON.parse(JSON.stringify(box.prescription));}}
   const statusDates=new Set(s.dailyStatuses.map(d=>d.date));for(const c of s.checkIns){if(!statusDates.has(c.date)){s.dailyStatuses.push({id:`legacy-day-${c.date}`,date:c.date,status:c.status,automatic:c.automatic});statusDates.add(c.date);}}
-  timeParts(s.settings.notificationTime);
+  timeParts(s.settings.notificationTime);timeParts(s.settings.nightReminderTime);if(typeof s.settings.nightReminder!=='boolean')throw new Error('Hatırlatıcı ayarları okunamadı.');
   if (!['worn','notWorn'].includes(s.settings.defaultAnswer) || typeof s.settings.backupEnabled !== 'boolean' || typeof s.settings.separateEyeCalendars!=='boolean') throw new Error('Yedek veya varsayılan cevap ayarı okunamadı.');
   if (!['lavender','mint','rose','peach','sky'].includes(s.settings.theme) || !['system','light','dark'].includes(s.settings.mode) || !['lumi','minti','pufi','none'].includes(s.settings.mascot) || !['mascot','minimal'].includes(s.settings.widgetStyle) || !['both','left','right','summary'].includes(s.settings.widgetScope) || !Array.isArray(s.settings.offsets) || s.settings.offsets.some(n => !Number.isInteger(n) || n < 0 || n > 365)) throw new Error('Görünüm veya hatırlatıcı ayarları okunamadı.');
   for (const key of ['separate','stock','solution','journal','case'] as const) if (typeof s.modules[key] !== 'boolean') throw new Error('Özellik ayarları okunamadı.');

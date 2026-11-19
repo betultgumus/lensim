@@ -7,7 +7,8 @@ import { Button, Copy, Field, Sheet, styles, useColors } from './ui';
 const displayDate=(iso:string)=>/^\d{4}-\d{2}-\d{2}$/.test(iso)?`${iso.slice(8,10)}.${iso.slice(5,7)}.${iso.slice(0,4)}`:iso;
 /**
  * Date input (GG.AA.YYYY) with a calendar sheet.
- * - `compact`: the picker opens from a small calendar icon beside the label instead of a full-width button.
+ * The calendar sheet opens from the calendar icon on the right side of the input. The format
+ * (GG.AA.YYYY) is shown as a lighter hint next to the label. `compact` is kept for older callers.
  * - `onValidityChange`: reports false while the typed text is incomplete or not a real date, so a form
  *   never saves the previous value silently.
  * - `openRequest`: increase it to open the calendar sheet from outside.
@@ -22,12 +23,9 @@ export function DateField({ label,value,onChange,compact=false,onValidityChange,
   const requested=useRef(openRequest);
   useEffect(()=>{if(openRequest!==requested.current){requested.current=openRequest;show();}},[openRequest]);// eslint-disable-line react-hooks/exhaustive-deps
   const choose=(day:string)=>{onChange(day);setText(displayDate(day));setInvalid(false);validity.current?.(true);setOpen(false);};
-  const picker=<Pressable accessibilityRole="button" accessibilityLabel={`${label}: takvimden seç`} hitSlop={10} onPress={show} style={{width:30,height:26,borderRadius:8,alignItems:'center',justifyContent:'center'}}><Ionicons name="calendar-outline" size={17} color={t.muted}/></Pressable>;
+  const picker=<Pressable accessibilityRole="button" accessibilityLabel={`${label}: takvimi aç`} hitSlop={6} onPress={show} style={({pressed})=>({width:44,height:44,borderRadius:12,alignItems:'center',justifyContent:'center',backgroundColor:pressed?t.soft:'transparent'})}><Ionicons name="calendar-outline" size={22} color={t.accent}/></Pressable>;
   return <View style={{ gap:8 }}>
-    <Field label={`${label} · GG.AA.YYYY`} value={text} onChange={input} placeholder="GG.AA.YYYY" numeric labelAccessory={compact?picker:undefined}/>
-    {!compact&&<Copy size={14} muted>Gün.Ay.Yıl biçiminde yazabilir veya takvimden seçebilirsin. Örnek: 16.11.2026</Copy>}
-    {invalid&&<Copy size={14} style={{color:t.danger}}>Bu tarih anlaşılmadı. GG.AA.YYYY biçiminde geçerli bir tarih gir.</Copy>}
-    {!compact&&<Button title="Takvimden seç" secondary icon="calendar-outline" onPress={show}/>}
+    <Field label={label} hint="GG.AA.YYYY" value={text} onChange={input} placeholder="GG.AA.YYYY" numeric trailing={picker} error={invalid?'Bu tarih anlaşılmadı. GG.AA.YYYY biçiminde geçerli bir tarih gir ya da takvim simgesine dokun.':null}/>
     <Sheet visible={open} title="Tarih seç" onClose={()=>setOpen(false)}>
       <View style={{ flexDirection:'row',justifyContent:'space-between',alignItems:'center' }}>
         <View style={{flexDirection:'row'}}><Pressable accessibilityLabel="Önceki yıl" accessibilityRole="button" style={styles.icon} onPress={()=>setMonth(addMonths(month,-12))}><Copy size={22}>«</Copy></Pressable><Pressable accessibilityLabel="Önceki ay" accessibilityRole="button" style={styles.icon} onPress={()=>setMonth(addMonths(month,-1))}><Copy size={24}>‹</Copy></Pressable></View>

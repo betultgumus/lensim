@@ -79,10 +79,10 @@ test('editing a pair updates both eyes together',()=>{
   assert.deepEqual(state.packages.map(p=>[p.openedOn,p.durationDaysSnapshot]),[['2026-11-02',15],['2026-11-02',15]]);
 });
 
-test('owl level reacts only for 15-day and monthly packages',()=>{
+test('owl level: 15-day and monthly thresholds, overdue for any multi-day package',()=>{
   assert.deepEqual([9,10,15,16].map(d=>packageMascotLevel(15,d)),[1,2,2,3]);
   assert.deepEqual([19,20,30,31].map(d=>packageMascotLevel(30,d)),[1,2,2,3]);
-  assert.deepEqual([packageMascotLevel(1,5),packageMascotLevel(90,120),packageMascotLevel(14,30)],[1,1,1]);
+  assert.deepEqual([packageMascotLevel(1,5),packageMascotLevel(90,80),packageMascotLevel(90,120),packageMascotLevel(14,30)],[1,1,3,3]);
 });
 
 test('marking worn before the opening day moves the opening of both eyes to that day',()=>{

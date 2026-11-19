@@ -1,16 +1,21 @@
 import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
-import { AppState as NativeAppState } from 'react-native';
+import { Alert, AppState as NativeAppState } from 'react-native';
 import * as Notifications from 'expo-notifications';
 import { router } from 'expo-router';
 import { defaultState, type AppState } from '../domain/types';
 import { transition, type Action } from '../domain/reducer';
-import { addDays, trackingDay } from '../domain/dates';
+import { trackingDay } from '../domain/dates';
+import { friendlyError, type ErrorContext } from '../domain/errors';
 import { loadState, saveState } from '../data/database';
 import { syncNotifications } from '../services/notifications';
+import { syncWidgets } from '../services/widgets';
 
 type Context = { state: AppState; loading: boolean; error: string | null; syncWarning: string | null; today: string; dispatch: (action: Action) => Promise<AppState>; retry: () => void; resync: () => Promise<void> };
 const AppContext = createContext<Context | null>(null);
-export const errorText = (error: unknown) => error instanceof Error ? error.message : 'İşlem tamamlanamadı. Tekrar dene.';
+/** Turkish, person-facing text for any error. Raw SQLite/native messages are never shown. */
+export const errorText = (error: unknown, context: ErrorContext = 'save') => friendlyError(error, context).message;
+/** Shows a Turkish alert that says what happened and what to do next. */
+export const showError = (error: unknown, context: ErrorContext = 'save') => { const { title, message } = friendlyError(error, context); Alert.alert(title, message); };
 export const uid = () => `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
 
 export function AppProvider({ children }: React.PropsWithChildren) {
@@ -21,15 +26,17 @@ export function AppProvider({ children }: React.PropsWithChildren) {
   const resync = useCallback(async () => {
     const run = effects.current.catch(() => {}).then(async () => {
       const latest = current.current;
-      const results = await Promise.allSettled([syncNotifications(latest)]);
-      const issues = results.flatMap(r => r.status === 'rejected' ? [`Bildirim: ${errorText(r.reason)}`] : []);
+      // A failed widget refresh is not shown to the person: the widget keeps its last cards and is
+      // refreshed again on the next save, day change or app resume.
+      const [notifications] = await Promise.allSettled([syncNotifications(latest), syncWidgets(latest)]);
+      const issues = notifications.status === 'rejected' ? [errorText(notifications.reason,'notification')] : [];
       setSyncWarning(issues.length ? issues.join('\n') : null);
     });
     effects.current = run; await run;
   }, []);
   const retry = useCallback(() => {
     setLoading(true); setError(null);
-    loadState().then(value => { current.current = value; setState(value); void resync(); }).catch(e => setError(errorText(e))).finally(() => setLoading(false));
+    loadState().then(value => { current.current = value; setState(value); void resync(); }).catch(e => setError(errorText(e,'load'))).finally(() => setLoading(false));
   }, [resync]);
   useEffect(retry, [retry]);
   useEffect(() => {
@@ -69,23 +76,20 @@ export function AppProvider({ children }: React.PropsWithChildren) {
       if(data.kind!=='daily-checkin'||!['worn','notWorn'].includes(response.actionIdentifier))return;
       const date=typeof data.date==='string'?data.date:trackingDay();
       const ids=Array.isArray(data.packageIds)?data.packageIds.filter((id):id is string=>typeof id==='string'):[];
-      for(const packageId of ids){const pack=current.current.packages.find(p=>p.id===packageId);if(!pack||date<pack.openedOn||(pack.closedOn&&date>pack.closedOn))continue;void dispatch({type:'checkIn',id:uid(),packageId,date,status:response.actionIdentifier as 'worn'|'notWorn'});}
+      for(const packageId of ids){const pack=current.current.packages.find(p=>p.id===packageId);if(!pack||date<pack.openedOn||(pack.closedOn&&date>pack.closedOn))continue;void dispatch({type:'checkIn',id:uid(),packageId,date,status:response.actionIdentifier as 'worn'|'notWorn'}).catch(e=>showError(e));}
     };
     const subscription=Notifications.addNotificationResponseReceivedListener(apply);
     void Notifications.getLastNotificationResponseAsync().then(apply).catch(()=>{});
     return()=>subscription.remove();
   },[dispatch,loading]);
+  // Unanswered days are filled in ONE saved transition (previously one save per day and eye, queued
+  // again on every revision change). A failure here never blocks the app: it is retried on the next
+  // day change, app resume or saved change, and nothing is lost meanwhile.
+  const autoFilling = useRef(false);
   useEffect(() => {
-    if (loading || new Date().getHours() < 2) return;
-    const through=addDays(today,-1);
-    for (const pack of current.current.packages) {
-      if(pack.boxId.startsWith('legacy-box-'))continue;
-      const last = pack.closedOn && pack.closedOn < through ? pack.closedOn : through;
-      for (let date=pack.openedOn; date<=last; date=addDays(date,1)) {
-        if (current.current.checkIns.some(c=>c.packageId===pack.id&&c.date===date)) continue;
-        void dispatch({type:'checkIn',id:uid(),packageId:pack.id,date,status:current.current.settings.defaultAnswer,automatic:true}).catch(e=>setError(errorText(e)));
-      }
-    }
+    if (loading || autoFilling.current) return;
+    autoFilling.current = true;
+    dispatch({ type: 'autoFill', id: uid() }).catch(() => {}).finally(() => { autoFilling.current = false; });
   },[loading,today,state.revision,dispatch]);
   return <AppContext.Provider value={{ state, loading, error, syncWarning, today, dispatch, retry, resync }}>{children}</AppContext.Provider>;
 }

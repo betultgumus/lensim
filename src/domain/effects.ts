@@ -1,9 +1,34 @@
 import { activeCycles } from './reducer.ts';
-import { addDays, dateOnly, formatDate, getCycleProgress, getDaysRemaining, getNotificationDates, parseDate, statusCopy, trackingDay } from './dates.ts';
-import type { AppState, LensPackage } from './types.ts';
+import { addDays, dateOnly, formatDate, getDaysRemaining, getNotificationDates, parseDate, trackingDay } from './dates.ts';
+import type { AppState } from './types.ts';
 
-export type Reminder = { key: string; date: Date; body: string; kind?: 'daily-checkin'|'package-expired'; packageIds?: string[]; eye?: 'left'|'right' };
+export type Reminder = { key: string; date: Date; body: string; kind?: 'daily-checkin'|'package-expired'|'night-remove'; packageIds?: string[]; eye?: 'left'|'right' };
+/**
+ * Two independent reminder groups: `notifications` = the daily "Bugün lens taktın mı?" question plus package
+ * change warnings at `notificationTime`; `nightReminder` = "Lenslerini çıkardın mı?" at `nightReminderTime`.
+ * Turning one on never turns on or moves the other.
+ */
 export function notificationPlan(state: AppState, now = new Date()): Reminder[] {
+  return [...dailyPlan(state, now), ...nightPlan(state, now)].sort((a,b) => +a.date - +b.date).slice(0, 60);
+}
+export const NIGHT_REMINDER_BODY = 'Lenslerini çıkardın mı? Lensle uyumamak için yatmadan önce çıkarmayı unutma.';
+/** Nights with an open package, except days already answered "Takmadım" or "Gözlük". A time before 02.00 belongs to the same tracking day. */
+function nightPlan(state: AppState, now: Date): Reminder[] {
+  if (!state.settings.nightReminder) return [];
+  const [hour, minute] = state.settings.nightReminderTime.split(':').map(Number);
+  const result: Reminder[] = [];
+  for (let i = 0; i < 21; i++) {
+    const day = addDays(trackingDay(now), i);
+    if (!state.packages.some(p => p.openedOn <= day && (!p.closedOn || day <= p.closedOn))) continue;
+    const answer = state.dailyStatuses.find(d => d.date === day);
+    if (answer && !answer.automatic && answer.status !== 'worn') continue;
+    const date = parseDate(hour! < 2 ? addDays(day, 1) : day); date.setHours(hour!, minute!, 0, 0);
+    if (date <= now) continue;
+    result.push({ key: `night:${+date}`, date, body: NIGHT_REMINDER_BODY, kind: 'night-remove' });
+  }
+  return result;
+}
+function dailyPlan(state: AppState, now: Date): Reminder[] {
   if (!state.settings.notifications) return [];
   const result: Reminder[] = [];
   for (const c of activeCycles(state)) {
@@ -38,62 +63,5 @@ export function notificationPlan(state: AppState, now = new Date()): Reminder[] 
   for (const e of state.auxiliary.filter(e => !e.completed && state.modules[e.kind])) {
     for (const date of getNotificationDates(e.due, [0], state.settings.notificationTime, now)) result.push({ key: `${e.kind}:${e.id}:${+date}`, date, body: `${e.kind === 'case' ? 'Lens kabı' : 'Solüsyon'} değişim tarihin geldi. Ürün talimatını kontrol et.` });
   }
-  return result.sort((a,b) => +a.date - +b.date).slice(0, 60);
-}
-export type WidgetProps = { title: string; value: string; label: string; due: string; summary: string; color: string; background: string; mascot: boolean; face: string; stock: string; progress: number };
-const colors = { lavender: '#7456C3', mint: '#267257', rose: '#A14472', peach: '#A15B31', sky: '#346CA2' };
-const backgrounds = { lavender: '#F2EDFF', mint: '#E4F6EC', rose: '#FBEAF3', peach: '#FFF0E5', sky: '#E8F3FF' };
-/** Widget storage never receives journal notes, lens powers, brands or historical records. */
-export function androidWidgetSnapshot(state: AppState) {
-  const { theme, mode, mascot, widgetStyle, widgetScope, widgetStock } = state.settings;
-  return {
-    settings: { theme, mode, mascot, widgetStyle, widgetScope, widgetStock },
-    modules: { separate: state.modules.separate, stock: state.modules.stock },
-    cycles: activeCycles(state).map(c => ({ start:c.start, due:c.due, profileId:c.profileId, completed:null, plan:{ kind:c.plan.kind } })),
-    widget: widgetProps(state,trackingDay()),
-    stock: { pieces: state.modules.stock && widgetStock ? state.stock.pieces : 0 },
-  };
-}
-export function widgetProps(state: AppState, day: string): WidgetProps {
-  const packages=state.packages.filter(p=>!p.closedOn&&p.openedOn<=day).sort((a,b)=>a.openedOn.localeCompare(b.openedOn));
-  if(packages.length){
-    const selected=(state.settings.widgetScope==='left'||state.settings.widgetScope==='right'?packages.find(p=>p.eye===state.settings.widgetScope):packages.find(p=>p.eye==='right'))??packages[0]!;
-    const box=state.boxes.find(b=>b.id===selected.boxId)!;
-    const eyeText=(eye:'left'|'right')=>eye==='right'?'Sağ':'Sol';
-    const display=(pack:LensPackage)=>{
-      const lensBox=state.boxes.find(b=>b.id===pack.boxId)!;const wornDates=state.checkIns.filter(c=>c.packageId===pack.id&&c.status==='worn').map(c=>c.date);
-      const duration=pack.durationDaysSnapshot??lensBox.durationDays;
-      if(duration===1){const count=new Set(wornDates.filter(d=>d.slice(0,7)===day.slice(0,7))).size;return{value:String(count),label:`${count} gün taktın`,due:`Kutuda ${lensBox.lensesRemaining} lens`,progress:Math.min(1,count/30)};}
-      const elapsed=Math.max(1,getDaysRemaining(day,pack.openedOn)+1);const remaining=duration-elapsed;const overdue=Math.max(0,-remaining);
-      return{value:`${elapsed}/${duration}`,label:`${elapsed} gündür açık · ${new Set(wornDates).size} gün taktın`,due:overdue?`Süre geçti · +${overdue} gün aşım`:remaining===0?'Bugün son gün':`${remaining} gün kaldı`,progress:Math.min(1,elapsed/duration),overdue};
-    };
-    const primary=display(selected);
-    const summary=packages.length>1?packages.map(p=>`${eyeText(p.eye)} ${display(p).value}`).join(' · '):'';
-    const overdue=Boolean(primary.overdue);
-    return{title:'Lensim',value:primary.value,label:primary.label,due:primary.due,summary,color:overdue?'#C8243B':selected.eye==='right'?'#0754C8':'#5A9FD9',background:overdue?'#FDEBED':state.settings.mode==='dark'?'#211C30':backgrounds[state.settings.theme],mascot:state.settings.widgetStyle==='mascot'&&state.settings.mascot!=='none',face:overdue?'pufi':state.settings.mascot,stock:state.settings.widgetStock?`Yedek: ${box.lensesRemaining} lens`:'',progress:primary.progress};
-  }
-  const cycles = activeCycles(state);
-  const sorted = [...cycles].sort((a,b) => a.due.localeCompare(b.due));
-  const cycle = state.settings.widgetScope === 'summary' ? sorted[0] : cycles.find(c => c.profileId === state.settings.widgetScope) ?? sorted[0];
-  const copy = cycle ? statusCopy(cycle, day) : null;
-  return {
-    title: 'Lensim', value: copy?.number ?? 'Merhaba', label: copy?.label ?? 'İlk lens paketini ekle',
-    due: cycle ? `Değişim: ${formatDate(cycle.due, true)}` : 'Uygulamayı aç',
-    summary: state.modules.separate ? cycles.map(c => `${c.profileId === 'left' ? 'Sol' : 'Sağ'}: ${statusCopy(c, day).number} ${statusCopy(c, day).label}`).join(' · ') : '',
-    color: colors[state.settings.theme], background: state.settings.mode === 'dark' ? '#211C30' : backgrounds[state.settings.theme],
-    mascot: state.settings.widgetStyle === 'mascot' && state.settings.mascot !== 'none', face: state.settings.mascot,
-    stock: state.modules.stock && state.settings.widgetStock ? `${state.stock.pieces} lens stokta` : '',
-    progress: cycle ? getCycleProgress(cycle,day) : 0,
-  };
-}
-/** Local midnights, not increments of 24h; final entry has no stale countdown. */
-export function generateWidgetTimeline(state: AppState, now = new Date(), days = 62) {
-  const entries = [{ date: now, props: widgetProps(state, dateOnly(now)) }];
-  for (let i = 1; i <= days; i++) {
-    const day = addDays(dateOnly(now), i); const date = parseDate(day); date.setHours(0,0,0,0);
-    entries.push({ date, props: widgetProps(state, day) });
-  }
-  const final = parseDate(addDays(dateOnly(now), days + 1)); final.setHours(0,0,0,0);
-  entries.push({ date: final, props: { ...widgetProps(state, dateOnly(final)), value: 'Tarihini', label: 'kontrol et', summary: '' } });
-  return entries;
+  return result;
 }

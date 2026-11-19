@@ -11,10 +11,11 @@ jest.mock('expo-notifications', () => ({
   getLastNotificationResponseAsync: jest.fn(async () => null),
 }));
 jest.mock('expo-router', () => ({
-  router: { push: jest.fn(), replace: jest.fn(), back: jest.fn(), canGoBack: () => false },
+  router: { push: jest.fn(), replace: jest.fn(), back: jest.fn(), navigate: jest.fn(), setParams: jest.fn(), canGoBack: () => false },
+  useLocalSearchParams: () => ({}),
   Redirect: () => null,
   useIsFocused: () => true,
 }));
 jest.mock('../../src/services/widgets', () => ({ syncWidgets: jest.fn(async () => {}) }));
-jest.mock('../../src/services/notifications', () => ({ syncNotifications: jest.fn(async () => {}), requestNotifications: jest.fn(async () => false) }));
+jest.mock('../../src/services/notifications', () => ({ syncNotifications: jest.fn(async () => {}), requestNotifications: jest.fn(async () => false), notificationAccess: jest.fn(async () => 'granted'), openNotificationSettings: jest.fn(async () => {}) }));
 jest.mock('../../src/data/database', () => ({ loadState: jest.fn(), saveState: jest.fn(async () => {}) }));

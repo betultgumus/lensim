@@ -12,6 +12,8 @@ export type Settings = {
   widgetStyle: 'mascot' | 'minimal'; widgetScope: Scope | 'summary'; widgetStock: boolean;
   defaultAnswer: 'worn' | 'notWorn'; backupEnabled: boolean;
   separateEyeCalendars: boolean;
+  /** Night "Lenslerini çıkardın mı?" reminder: independent of the daily question (`notifications`). */
+  nightReminder: boolean; nightReminderTime: string;
 };
 export type Auxiliary = { id: string; kind: 'solution' | 'case'; name: string; start: DateOnly; due: DateOnly; completed: DateOnly | null };
 export type Journal = { id: string; date: DateOnly; comfort: number; symptoms: string[]; note: string };
@@ -22,7 +24,7 @@ export type LensBox = {
   durationDays: number; lensesTotal: number; lensesRemaining: number; eyes: Eye[];
   prescription: { right?: Record<string,string>; left?: Record<string,string>; color?: string };
 };
-export type LensPackage = { id: string; boxId: string; eye: Eye; openedOn: DateOnly; closedOn: DateOnly | null; pairId?: string; durationDaysSnapshot?: number; lensTypeSnapshot?: LensBox['lensType']; prescriptionSnapshot?: Partial<Record<Eye,Record<string,string>>> & {color?:string} };
+export type LensPackage = { id: string; boxId: string; eye: Eye; openedOn: DateOnly; closedOn: DateOnly | null; /** Day the package was added to Lensim (missing on older records). */ createdOn?: DateOnly; pairId?: string; durationDaysSnapshot?: number; lensTypeSnapshot?: LensBox['lensType']; prescriptionSnapshot?: Partial<Record<Eye,Record<string,string>>> & {color?:string} };
 export type DailyCheckIn = { id: string; packageId: string; date: DateOnly; status: 'worn' | 'notWorn' | 'glasses'; automatic: boolean; stockUsed?: boolean };
 export type DailyStatus = { id:string; date:DateOnly; status:'worn'|'notWorn'|'glasses'; automatic:boolean };
 export type PrescriptionRecord = { id: string; date: DateOnly; kind: 'lens' | 'glasses'; eyes: Eye[]; values: Partial<Record<Eye, Record<string,string>>> };
@@ -36,7 +38,7 @@ export type AppState = {
 };
 export const defaultState = (): AppState => ({
   version: 1, revision: 0, onboarded: false,
-  settings: { theme: 'sky', mode: 'system', mascot: 'lumi', reduceMotion: false, haptics: true, notifications: false, notificationTime: '21:00', offsets: [3, 1, 0], widgetStyle: 'mascot', widgetScope: 'summary', widgetStock: false, defaultAnswer: 'worn', backupEnabled: false, separateEyeCalendars:false },
+  settings: { theme: 'sky', mode: 'system', mascot: 'lumi', reduceMotion: false, haptics: true, notifications: false, notificationTime: '21:00', offsets: [3, 1, 0], widgetStyle: 'mascot', widgetScope: 'summary', widgetStock: false, defaultAnswer: 'worn', backupEnabled: false, separateEyeCalendars:false, nightReminder:false, nightReminderTime:'23:00' },
   modules: { separate: false, stock: false, solution: false, journal: false, case: false },
   profiles: [], cycles: [], stock: { pieces: 0, autoDeduct: false, unit: 'pairs' }, movements: [], auxiliary: [], journal: [], boxes: [], packages: [], checkIns: [], dailyStatuses:[], prescriptionHistory: [],
 });

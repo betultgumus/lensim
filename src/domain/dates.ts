@@ -2,7 +2,7 @@ import type { DateOnly, Plan, Cycle, LensStatus } from './types.ts';
 
 /** Date-only values are parsed into local calendar components, never UTC timestamps. */
 export function parseDate(value: DateOnly): Date {
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) throw new Error('Tarihi YYYY-AA-GG biçiminde gir.');
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) throw new Error('Tarih anlaşılmadı. GG.AA.YYYY biçiminde geçerli bir tarih gir.');
   const [year, month, day] = value.split('-').map(Number) as [number, number, number];
   const result = new Date(year, month - 1, day, 12);
   if (year < 1900 || year > 2200 || result.getFullYear() !== year || result.getMonth() !== month - 1 || result.getDate() !== day) throw new Error('Geçerli bir tarih gir.');
@@ -37,19 +37,23 @@ export function isWithinEntryWindow(value: DateOnly, today = dateOnly(), maxDays
   return value <= today && value >= addDays(today, -maxDaysBack);
 }
 /** Lens durations offered in forms. Any other value is a custom duration. */
-export const DURATION_OPTIONS:ReadonlyArray<readonly [number,string]>=[[1,'Günlük'],[15,'15 günlük'],[30,'Aylık · 30 gün'],[90,'3 aylık']];
+/** Offered in forms next to “Özel”. Packages saved earlier with other durations (e.g. 90 days) keep them and show as custom. */
+export const DURATION_OPTIONS:ReadonlyArray<readonly [number,string]>=[[1,'Günlük'],[15,'15 günlük'],[30,'Aylık']];
 export const isPresetDuration=(days:number)=>DURATION_OPTIONS.some(([n])=>n===days);
 export function durationLabel(days:number){return days===1?'Günlük':days===15?'15 günlük':days===30?'Aylık':days===90?'3 aylık':`${days} gün`;}
 /** Short Turkish date, e.g. "16 Kas". */
 export function shortDate(value:DateOnly){return parseDate(value).toLocaleDateString('tr-TR',{day:'numeric',month:'short'});}
+/** Package day number: the opening day is day 1 (never below 1). Shared by the home screen, cycle screen and widget. */
+export const daysOpen=(start:DateOnly,today:DateOnly)=>Math.max(1,getDaysRemaining(today,start)+1);
 /**
- * Owl reaction for a package; a visual cue only. Monthly: 20 and 30 days. 15-day: the same
- * proportions (10 and 15 days). Other durations keep the calm owl.
+ * Owl reaction for a package, used by the home screen and the home-screen widget. Monthly: 20 and 30 days.
+ * 15-day: the same proportions (10 and 15 days). Any other multi-day package shows the overdue owl once its
+ * duration has passed and otherwise keeps the calm owl. Daily lenses always keep the calm owl.
  */
 export function packageMascotLevel(durationDays:number,elapsedDays:number):1|2|3 {
   if(durationDays===30)return monthlyMascotLevel(elapsedDays);
   if(durationDays===15)return elapsedDays>15?3:elapsedDays>=10?2:1;
-  return 1;
+  return durationDays>1&&elapsedDays>durationDays?3:1;
 }
 /** Mascot reaction thresholds for the monthly package card; this is a visual alert only. */
 export function monthlyMascotLevel(elapsedDays:number):1|2|3 {
@@ -100,6 +104,13 @@ export function planLabel(plan: Plan): string {
   if (plan.kind === 'monthly') return plan.unit === 'months' ? 'Aylık · takvim ayı' : 'Aylık · 30 gün';
   return `${plan.interval} ${ { days: 'gün', weeks: 'hafta', months: 'ay' }[plan.unit] }`;
 }
+/** Reads 2130, 21.30, 21:30 or 9:05 as a valid SS:DD time; returns null when it is not a real time. */
+export function normalizeTimeInput(raw: string): string | null {
+  const trimmed = raw.trim(); const digits = trimmed.replace(/\D/g, '');
+  const parts = /^(\d{1,2})[:.](\d{2})$/.exec(trimmed);
+  const candidate = parts ? `${parts[1]!.padStart(2, '0')}:${parts[2]}` : digits.length === 3 ? `0${digits[0]}:${digits.slice(1)}` : digits.length === 4 ? `${digits.slice(0, 2)}:${digits.slice(2)}` : '';
+  return /^([01]\d|2[0-3]):[0-5]\d$/.test(candidate) ? candidate : null;
+}
 export function timeParts(time: string): [number, number] {
   if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(time)) throw new Error('Saati SS:DD biçiminde gir (ör. 09:00).');
   return time.split(':').map(Number) as [number, number];
@@ -109,12 +120,4 @@ export function getNotificationDates(due: DateOnly, offsets: number[], time: str
   return [...new Set(offsets)].filter(n => n >= 0 && Number.isInteger(n)).map(offset => {
     const date = parseDate(addDays(due, -offset)); date.setHours(hour, minute, 0, 0); return date;
   }).filter(date => date > now).sort((a, b) => +a - +b);
-}
-export function statusCopy(cycle: Cycle, today = dateOnly()) {
-  const status = getLensStatus(cycle, today); const days = getDaysRemaining(cycle.due, today);
-  if (status === 'future') return { number: String(getDaysRemaining(cycle.start, today)), label: 'gün sonra başlayacak', message: 'Yeni döngün seni bekliyor.' };
-  if (status === 'daily') return { number: 'Bugün', label: 'tek kullanımlık lensin', message: 'Kullanım sonunda lensini at.' };
-  if (status === 'due') return { number: 'Bugün', label: 'değişim günü', message: 'Yeni bir başlangıcın zamanı.' };
-  if (status === 'overdue') return { number: String(-days), label: 'gün geçti', message: 'Değişim tarihini kontrol et.' };
-  return { number: String(days), label: 'gün kaldı', message: status === 'tomorrow' ? 'Yarın değişim günü!' : status === 'soon' ? 'Az kaldı, hazırlıklı ol!' : 'Bugün her şey yolunda.' };
 }

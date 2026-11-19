@@ -3,12 +3,11 @@ import { View } from 'react-native';
 import { router } from 'expo-router';
 import { Button, Card, Copy, Screen } from '../src/components/ui';
 import { useApp } from '../src/state/AppContext';
-import { addDays, durationLabel, formatDate, getDaysRemaining, shortDate } from '../src/domain/dates';
+import { addDays, daysOpen, durationLabel, formatDate, shortDate } from '../src/domain/dates';
 import { dayTone, palette } from '../src/design/dayTone';
 import { eyeLabel, type LensBox, type LensPackage } from '../src/domain/types';
 
 const typeNames: Record<LensBox['lensType'], string> = { spherical: 'Küresel', toric: 'Torik', multifocal: 'Multifokal', colored: 'Renkli' };
-const daysOpen = (start: string, today: string) => Math.max(1, getDaysRemaining(today, start) + 1);
 
 function Tile({ label, value, tone }: { label: string; value: string; tone?: string }) {
   return <View accessible accessibilityLabel={`${label}: ${value}`} style={{ flex: 1, minWidth: 0, paddingVertical: 10, paddingHorizontal: 6, borderRadius: 12, backgroundColor: '#F2F7FE', borderWidth: 1, borderColor: '#DCE8F7', alignItems: 'center' }}>
@@ -62,7 +61,7 @@ function CycleTrace({ start, end, today }: { start: string; end: string; today: 
         <Copy size={11} bold={day === today} style={{ color: entry ? tone.text : palette.inkSoft, lineHeight: 13 }}>{Number(day.slice(-2))}</Copy>
       </View>;
     })}</View>
-    <Button title="Günleri düzenle" secondary icon="calendar-outline" onPress={() => router.push({ pathname: '/days', params: { date: start < addDays(today, -30) ? today : start } })}/>
+    <Button title="Takvimde düzenle" secondary icon="calendar-outline" onPress={() => router.navigate({ pathname: '/(tabs)', params: { page: 'calendar' } })}/>
   </Card>;
 }
 

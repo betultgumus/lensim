@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { reminderDiff } from '../src/domain/notificationSync.ts';
-import { androidWidgetSnapshot } from '../src/domain/effects.ts';
+import { widgetSnapshot } from '../src/domain/widget.ts';
 import { transition } from '../src/domain/reducer.ts';
 import { defaultState } from '../src/domain/types.ts';
 test('notification reconciliation leaves existing unchanged jobs alone',()=>{
@@ -17,7 +17,7 @@ test('reminder reconciliation cancels only owned obsolete/changed jobs',()=>{
 test('notification off removes all owned jobs',()=>{assert.deepEqual(reminderDiff([{id:'one',owner:'lens-takip'}],[]).cancel,['one']);});
 test('Android widget snapshot contains no private notes or histories',()=>{
   const s=defaultState();s.journal=[{id:'secret',date:'2026-11-13',comfort:3,note:'private note',symptoms:[]}];s.stock.pieces=10;
-  const json=JSON.stringify(androidWidgetSnapshot(s));assert.ok(!json.includes('private'));assert.ok(!json.includes('journal'));assert.equal(androidWidgetSnapshot(s).stock.pieces,0);
+  const json=JSON.stringify(widgetSnapshot(s));assert.ok(!json.includes('private'));assert.ok(!json.includes('journal'));assert.ok(!json.includes('secret'));
 });
 test('solution replacement cannot end a bottle before it was opened',()=>{
   const s=defaultState();s.auxiliary=[{id:'a',kind:'solution',start:'2026-11-10',due:'2026-12-10',completed:null,name:''}];
