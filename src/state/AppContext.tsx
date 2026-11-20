@@ -38,6 +38,17 @@ export function AppProvider({ children }: React.PropsWithChildren) {
     setLoading(true); setError(null);
     loadState().then(value => { current.current = value; setState(value); void resync(); }).catch(e => setError(errorText(e,'load'))).finally(() => setLoading(false));
   }, [resync]);
+  const refreshFromDisk = useCallback(async () => {
+    const revisionAtStart = current.current.revision;
+    try {
+      const value = await loadState();
+      // The native widget can write through SQLite while the app is backgrounded. Adopt only a
+      // state at least as new as the one in memory; never roll back an in-flight app edit.
+      if (value.revision >= current.current.revision && current.current.revision >= revisionAtStart) {
+        current.current = value; setState(value); void resync();
+      }
+    } catch { /* A transient read cannot replace the already loaded in-memory records. */ }
+  }, [resync]);
   useEffect(retry, [retry]);
   useEffect(() => {
     let timer: ReturnType<typeof setTimeout>;
@@ -47,11 +58,11 @@ export function AppProvider({ children }: React.PropsWithChildren) {
       timer = setTimeout(tick, next.getTime() - Date.now());
     };
     const subscription = NativeAppState.addEventListener('change', status => {
-      clearTimeout(timer); if (status === 'active') tick();
+      clearTimeout(timer); if (status === 'active') { void refreshFromDisk(); tick(); }
     });
     const next = new Date(); if(next.getHours()<2) next.setHours(2,0,1,0); else {next.setDate(next.getDate()+1);next.setHours(2,0,1,0);} timer = setTimeout(tick, next.getTime()-Date.now());
     return () => { clearTimeout(timer); subscription.remove(); };
-  }, [resync]);
+  }, [resync, refreshFromDisk]);
   const dispatch = useCallback((action: Action): Promise<AppState> => {
     const run = queue.current.catch(() => {}).then(async () => {
       const previous = current.current; const next = transition(previous, action, trackingDay());
@@ -74,9 +85,19 @@ export function AppProvider({ children }: React.PropsWithChildren) {
       const key=`${response.notification.request.identifier}:${response.actionIdentifier}`;if(handled.has(key))return;handled.add(key);
       if(data.kind==='package-expired'&&response.actionIdentifier==='open-package'&&(data.eye==='left'||data.eye==='right')){router.push({pathname:'/package/new',params:{eye:data.eye}});return;}
       if(data.kind!=='daily-checkin'||!['worn','notWorn'].includes(response.actionIdentifier))return;
-      const date=typeof data.date==='string'?data.date:trackingDay();
-      const ids=Array.isArray(data.packageIds)?data.packageIds.filter((id):id is string=>typeof id==='string'):[];
-      for(const packageId of ids){const pack=current.current.packages.find(p=>p.id===packageId);if(!pack||date<pack.openedOn||(pack.closedOn&&date>pack.closedOn))continue;void dispatch({type:'checkIn',id:uid(),packageId,date,status:response.actionIdentifier as 'worn'|'notWorn'}).catch(e=>showError(e));}
+      // "Taktım" / "Takmadım" under the daily question: saved as that day's ONE shared answer, exactly like the
+      // answer buttons on the home screen (useMarkDay). An existing answer for the day is updated, never duplicated.
+      // The response is cleared afterwards, so a later app start never applies it again over a newer answer.
+      const status=response.actionIdentifier as 'worn'|'notWorn';
+      const date=typeof data.date==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(data.date)?data.date:trackingDay();
+      try{Notifications.clearLastNotificationResponse?.();}catch{/* older native module: nothing to clear */}
+      void Notifications.dismissNotificationAsync(response.notification.request.identifier).catch(()=>{});
+      const covered=current.current.packages.find(p=>p.openedOn<=date&&(!p.closedOn||date<=p.closedOn));
+      const save=covered?dispatch({type:'checkIn',id:uid(),packageId:covered.id,date,status,automatic:false})
+        :status==='notWorn'?dispatch({type:'dailyStatus',id:uid(),date,status,automatic:false}):null;
+      if(!save){Alert.alert('Bu gün için paket yok','Lens taktığın günü kaydetmek için önce o gün açtığın paketi ekle.');return;}
+      // Show the answer where it lives: the home lens card (the widget is refreshed by the save itself).
+      save.then(()=>router.navigate({pathname:'/(tabs)',params:{page:'today'}})).catch(e=>showError(e));
     };
     const subscription=Notifications.addNotificationResponseReceivedListener(apply);
     void Notifications.getLastNotificationResponseAsync().then(apply).catch(()=>{});

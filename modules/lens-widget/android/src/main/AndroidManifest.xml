@@ -1,0 +1,30 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+  <application>
+    <!-- Home-screen widgets (2x1 and 1x1). Redraw on widget updates, at the 02.00 day change (own alarm) and when the clock or time zone changes. -->
+    <receiver android:name="expo.modules.lenswidget.LensWidgetProvider" android:exported="false" android:label="@string/lens_widget_label">
+      <intent-filter>
+        <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+        <action android:name="android.intent.action.TIME_SET" />
+        <action android:name="android.intent.action.TIMEZONE_CHANGED" />
+      </intent-filter>
+      <meta-data android:name="android.appwidget.provider" android:resource="@xml/lens_widget_info" />
+    </receiver>
+    <receiver android:name="expo.modules.lenswidget.LensWidgetTinyProvider" android:exported="false" android:label="@string/lens_widget_tiny_label">
+      <intent-filter>
+        <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+        <action android:name="android.intent.action.TIME_SET" />
+        <action android:name="android.intent.action.TIMEZONE_CHANGED" />
+      </intent-filter>
+      <meta-data android:name="android.appwidget.provider" android:resource="@xml/lens_widget_tiny_info" />
+    </receiver>
+    <receiver android:name="expo.modules.lenswidget.LensWidgetActionProvider" android:exported="false" android:label="@string/lens_widget_action_label">
+      <intent-filter>
+        <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+        <action android:name="android.intent.action.TIME_SET" />
+        <action android:name="android.intent.action.TIMEZONE_CHANGED" />
+      </intent-filter>
+      <meta-data android:name="android.appwidget.provider" android:resource="@xml/lens_widget_action_info" />
+    </receiver>
+    <receiver android:name="expo.modules.lenswidget.LensWidgetCheckInReceiver" android:exported="false" />
+  </application>
+</manifest>

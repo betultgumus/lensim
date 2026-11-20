@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Lensim 2x1 widget: the cycle counter and its status only. Texts here are the widget-picker preview; the provider replaces them with the app's data. -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android" android:id="@+id/lens_root" android:layout_width="match_parent" android:layout_height="match_parent" android:orientation="horizontal" android:gravity="center_vertical" android:background="@drawable/lens_widget_card_fresh" android:paddingStart="8dp" android:paddingEnd="8dp">
+  <ImageView android:id="@+id/lens_owl" android:layout_width="24dp" android:layout_height="24dp" android:layout_marginEnd="5dp" android:src="@drawable/lens_widget_owl" android:contentDescription="" android:importantForAccessibility="no" />
+  <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:orientation="vertical" android:importantForAccessibility="noHideDescendants">
+    <TextView android:id="@+id/lens_side" android:layout_width="match_parent" android:layout_height="0dp" android:visibility="gone" />
+    <TextView android:id="@+id/lens_count" android:layout_width="match_parent" android:layout_height="24dp" android:gravity="bottom|start" android:includeFontPadding="false" android:maxLines="1" android:text="7/30" android:textColor="#10265A" android:textSize="30sp" android:textStyle="bold" android:autoSizeTextType="uniform" android:autoSizeMinTextSize="14sp" android:autoSizeMaxTextSize="30sp" android:autoSizeStepGranularity="1sp" />
+    <TextView android:id="@+id/lens_status" android:layout_width="match_parent" android:layout_height="16dp" android:maxLines="1" android:text="26 gün takıldı" android:textColor="#10265A" android:textSize="13sp" android:textStyle="bold" android:autoSizeTextType="uniform" android:autoSizeMinTextSize="9sp" android:autoSizeMaxTextSize="13sp" android:autoSizeStepGranularity="1sp" />
+    <TextView android:id="@+id/lens_other" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="1dp" android:maxLines="1" android:ellipsize="end" android:text="" android:textColor="#10265A" android:textSize="11sp" android:visibility="gone" />
+  </LinearLayout>
+</LinearLayout>

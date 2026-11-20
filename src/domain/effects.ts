@@ -41,7 +41,7 @@ function dailyPlan(state: AppState, now: Date): Reminder[] {
   }
   const packages=state.packages.filter(p=>!p.closedOn&&p.openedOn<=trackingDay(now));
   for (const pack of packages) {
-    const box=state.boxes.find(b=>b.id===pack.boxId); if(!box)continue;const duration=pack.durationDaysSnapshot??box.durationDays;if(duration<=1)continue;
+    const box=state.boxes.find(b=>b.id===pack.boxId);const duration=pack.durationDaysSnapshot??box?.durationDays;if(!duration||duration<=1)continue;
     const due=addDays(pack.openedOn,duration-1);
     for(const date of getNotificationDates(due,state.settings.offsets,state.settings.notificationTime,now)) {
       if(dateOnly(date)<pack.openedOn) continue;
@@ -60,6 +60,15 @@ function dailyPlan(state: AppState, now: Date): Reminder[] {
       result.push({key:`daily-check:${+date}:${packageIds.join(',')}`,date,body:'Bugün lens taktın mı?',kind:'daily-checkin',packageIds});
     }
   }
+  // A change warning due at the same minute as the daily question is folded into it: one notification instead of
+  // two, and the warning gets the question's "Taktım" / "Takmadım" buttons. Warnings on days without a question stay.
+  const questions=new Map(result.filter(r=>r.kind==='daily-checkin').map(r=>[+r.date,r]));
+  const merged=result.filter(r=>{
+    if(r.kind||!(r.key.startsWith('package:')||r.key.startsWith('lens:')))return true;
+    const question=questions.get(+r.date);if(!question)return true;
+    question.body=`${r.body.replace(/ Ürün talimatını esas al\.$/,'')} ${question.body}`;return false;
+  });
+  result.length=0;result.push(...merged);
   for (const e of state.auxiliary.filter(e => !e.completed && state.modules[e.kind])) {
     for (const date of getNotificationDates(e.due, [0], state.settings.notificationTime, now)) result.push({ key: `${e.kind}:${e.id}:${+date}`, date, body: `${e.kind === 'case' ? 'Lens kabı' : 'Solüsyon'} değişim tarihin geldi. Ürün talimatını kontrol et.` });
   }

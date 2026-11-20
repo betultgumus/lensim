@@ -5,8 +5,6 @@
 export const palette = {
   right: '#0754C8', left: '#83BDEB', leftText: '#2C6AA0', ink: '#10265A', inkSoft: '#405B86',
   glasses: '#7956B5', glassesText: '#5B3F8F', warning: '#B8660F', danger: '#C8243B', empty: '#E3E9F1',
-  /** Selected "Takmadım" answer button: deep navy so white text reads as clearly as "Taktım". */
-  notWornSelected: '#26336E',
   /** Progress strip: a past day with no answer, and a day still to come (outlined). */
   unanswered: '#D3DCE8', upcoming: '#FFFFFF', upcomingBorder: '#B8CBE3',
 };

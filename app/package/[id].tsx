@@ -13,25 +13,25 @@ export default function PackageDetail() {
   const partner=pack?.pairId?state.packages.find(p=>p.pairId===pack.pairId&&p.id!==pack.id):undefined;
   const [selected,setSelected]=useState(today);
   const dates=useMemo(()=>{if(!pack)return[];const end=pack.closedOn??today;const result:string[]=[];for(let d=pack.openedOn;d<=end&&result.length<366;d=addDays(d,1))result.push(d);return result;},[pack?.id,pack?.openedOn,pack?.closedOn,today]);
-  if(!pack||!box)return <Screen title="Paket bulunamadı" back><Copy>Bu kayıt taşınmış ya da silinmiş olabilir.</Copy></Screen>;
-  const duration=pack.durationDaysSnapshot??box.durationDays;const lensType=pack.lensTypeSnapshot??box.lensType;const rx=pack.prescriptionSnapshot??box.prescription;
+  if(!pack)return <Screen title="Paket bulunamadı" back><Copy>Bu kayıt taşınmış ya da silinmiş olabilir.</Copy></Screen>;
+  const duration=pack.durationDaysSnapshot??box?.durationDays??30;const lensType=pack.lensTypeSnapshot??box?.lensType;const rx=pack.prescriptionSnapshot??box?.prescription;
   const entries=state.checkIns.filter(c=>c.packageId===pack.id); const worn=entries.filter(c=>c.status==='worn').length;
   const openDays=Math.max(1,getDaysRemaining(pack.closedOn??today,pack.openedOn)+1); const left=Math.max(0,duration-openDays);
-  const selectedEntry=entries.find(c=>c.date===selected); const reserveDays=Math.floor(box.lensesRemaining/Math.max(1,box.eyes.length))*duration; const reserveCopy=reserveDays>=30?`yaklaşık ${Math.floor(reserveDays/30)} ay yeter`:`yaklaşık ${reserveDays} gün yeter`;
-  const saveDay=async(status:'worn'|'notWorn'|'glasses')=>{if(!isWithinEntryWindow(selected,today))throw new Error('Geçmiş kullanım kaydı en fazla 30 gün geriye girilebilir.');const applicable=state.packages.find(p=>p.openedOn<=selected&&(!p.closedOn||selected<=p.closedOn));if(applicable)await dispatch({type:'checkIn',id:uid(),packageId:applicable.id,date:selected,status,automatic:false});};
-  return <Screen title={`${eyeLabel(pack.eye)} göz`} subtitle={`${box.name}${box.brand?` · ${box.brand}`:''}`} back>
+  const selectedEntry=entries.find(c=>c.date===selected); const reserveDays=Math.floor((box?.lensesRemaining??0)/Math.max(1,box?.eyes.length??1))*duration; const reserveCopy=reserveDays>=30?`yaklaşık ${Math.floor(reserveDays/30)} ay yeter`:`yaklaşık ${reserveDays} gün yeter`;
+  const saveDay=async(status:'worn'|'notWorn'|'glasses')=>{if(!isWithinEntryWindow(selected,today))throw new Error('Geçmiş kullanım kaydı en fazla 30 gün geriye girilebilir.');const applicable=state.packages.find(p=>p.id===pack.id&&p.openedOn<=selected&&(!p.closedOn||selected<=p.closedOn));if(applicable)await dispatch({type:'checkIn',id:uid(),packageId:applicable.id,date:selected,status,automatic:false});};
+  return <Screen title={`${eyeLabel(pack.eye)} göz`} subtitle={box?`${box.name}${box.brand?` · ${box.brand}`:''}`:'Kutusuz paket takibi'} back>
     <Card style={{borderRadius:16,padding:16,gap:8}}>
-      <Copy size={14} bold>{lensType==='spherical'?'KÜRESEL':lensType==='toric'?'TORİK':lensType==='multifocal'?'MULTİFOKAL':'RENKLİ'} LENS</Copy>
+      {lensType&&<Copy size={14} bold>{lensType==='spherical'?'KÜRESEL':lensType==='toric'?'TORİK':lensType==='multifocal'?'MULTİFOKAL':'RENKLİ'} LENS</Copy>}
       {duration===1?<Copy size={48} bold>{state.checkIns.filter(c=>c.packageId===pack.id&&c.status==='worn'&&c.date.slice(0,7)===today.slice(0,7)).length} <Copy size={17}>bu ay takılan gün</Copy></Copy>:<Copy size={48} bold>{openDays}<Copy size={22}>/{duration}</Copy></Copy>}
-      <Copy>{duration===1?`Kutuda ${box.lensesRemaining} lens · ${reserveCopy}`:`${openDays} gündür açık · ${worn} gün taktın · ${left} gün kaldı`}</Copy>
-      {!!box.brand&&<Copy muted>Marka: {box.brand}</Copy>}
-      {Object.entries(rx[pack.eye]??{}).map(([k,v])=><Copy key={k} muted>{k}: {v}</Copy>)}
-      {!!rx.color&&<Copy muted>Renk: {rx.color}</Copy>}
-      <Button title="Kutuyu düzenle" secondary icon="create-outline" onPress={()=>router.push({pathname:'/box/[id]',params:{id:box.id}})}/>
+      <Copy>{duration===1?(box?`Kutuda ${box.lensesRemaining} lens · ${reserveCopy}`:`Bu ay ${worn} gün taktın`):`${openDays} gündür açık · ${worn} gün taktın · ${left} gün kaldı`}</Copy>
+      {!!box?.brand&&<Copy muted>Marka: {box.brand}</Copy>}
+      {Object.entries(rx?.[pack.eye]??{}).map(([k,v])=><Copy key={k} muted>{k}: {v}</Copy>)}
+      {!!rx?.color&&<Copy muted>Renk: {rx.color}</Copy>}
+      {box&&<Button title="Kutuyu düzenle" secondary icon="create-outline" onPress={()=>router.push({pathname:'/box/[id]',params:{id:box.id}})}/>}
       <Button title="Paketi düzenle" secondary icon="create-outline" onPress={()=>router.push({pathname:'/package/edit',params:{id:pack.id}})}/>
       <Button title="Paketi sil" secondary danger icon="trash-outline" onPress={()=>{
         const remove=(withPair:boolean)=>dispatch({type:'deletePackage',id:pack.id,withPair}).then(()=>router.replace('/(tabs)')).catch(e=>Alert.alert('Silinemedi',errorText(e)));
-        const message=`Paket kaldırılır, kutuya lens geri eklenir.${!pack.closedOn?' Bu paketle kapanan önceki paket varsa yeniden açılır.':''} Takvimdeki cevapların korunur.`;
+        const message=`Paket kaldırılır.${box?' Kutudaki lens stoğu güncellenir.':''}${!pack.closedOn?' Bu paketle kapanan önceki paket varsa yeniden açılır.':''} Takvimdeki cevapların korunur.`;
         Alert.alert('Paket silinsin mi?',message,partner?[{text:'Vazgeç',style:'cancel'},{text:'İki gözü de sil',style:'destructive',onPress:()=>void remove(true)},{text:pack.eye==='right'?'Yalnız sağ göz':'Yalnız sol göz',onPress:()=>void remove(false)}]:[{text:'Vazgeç',style:'cancel'},{text:'Paketi sil',style:'destructive',onPress:()=>void remove(false)}]);
       }}/>
       {!pack.closedOn&&<Button title="Bu paketi bitir, yenisini aç" icon="add" onPress={()=>router.push({pathname:'/package/new',params:{eye:pack.eye}})}/>}

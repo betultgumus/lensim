@@ -35,20 +35,36 @@ Bu liste bir başarı raporu değildir. APK telefona kurulduktan sonra sırayla 
 - [ ] Onaydan sonra “Önceki kayıtlara dön” çalışıyor.
 - [ ] Bozuk/alakasız bir dosya seçilince veri değişmeden hata gösteriliyor.
 
-## 6. Bildirim ve arka plan
+## 6. Misafir, hesap ve bulut yedeği (Supabase test projesi gerekir)
+- [ ] Hesapsız kurulumda temel kullanım, kayıt ve geçmiş çevrimdışıyken çalışıyor.
+- [ ] E-posta/parola ve Google ile hesap açma/giriş, e-posta doğrulama ve parola sıfırlama akışları fiziksel Android cihazda tamamlanıyor.
+- [ ] Sadece giriş yapmak hiçbir lens verisini yüklemiyor; bulut yedeği kapalı kalıyor.
+- [ ] Bulut yedeği ayrı ekranda açıkça etkinleştirildikten sonra misafir kutuları/paketleri/geçmişi hesaba bir kez aktarılıyor.
+- [ ] Aynı hesabı ikinci cihazda açıp bulut yedeğini etkinleştirince kayıtlar geri geliyor; iki cihazda aynı gün farklı cevap varsa ekranda belirtilen cihaz kuralı uygulanıyor.
+- [ ] Ağ kesilmesi, oturumun süresinin dolması ve yeniden deneme yerel kayıtlara zarar vermiyor.
+- [ ] Bulut yedeğini kapatma yüklemeyi durduruyor; “bulut kopyasını sil” seçilirse yedek ve arşivi silinip doğrulanıyor.
+- [ ] Hesabı silme, sunucuda hesabı ve bulut kopyalarını kaldırıyor; cihaz verisini sakla/sil seçimi doğru çalışıyor.
+- [ ] Araştırma paylaşımı tercihi yerel kalıyor; tercih ne olursa olsun araştırma verisi ağ üzerinden gönderilmiyor.
+
+## 7. Bildirim ve arka plan
 - [ ] Android 13+ bildirim izni penceresi çıkıyor; sonradan Ayarlar’dan kapatılınca uygulama çalışmaya devam ediyor.
 - [ ] Günlük hatırlatma uygulama kapalıyken seçilen saatte geliyor; bildirimdeki “Taktım” iki gözü işaretliyor.
 - [ ] Telefon yeniden başlatıldıktan sonra hatırlatma hâlâ geliyor.
 - [ ] Pil tasarrufu agresif bir cihazda (Xiaomi/Samsung) bir gece bekletip deneme.
 - [ ] Uygulama 3 gün açılmayınca: açılışta kaçan günler otomatik dolduruluyor ve “N gün otomatik dolduruldu” kartı çıkıyor.
 
-## 7. Görünüm ve erişilebilirlik
+## 8. Widget, görünüm ve erişilebilirlik
+- [ ] Var olan 2×1 ve 1×1 widget’lar çalışmaya devam ediyor ve uygulamayı doğru ekrana açıyor.
+- [ ] Yeni 2×3 widget ekleniyor; “Taktım” ve “Takmadım” düğmeleri Lensim ekranını açmadan bugünün durumunu kaydediyor.
+- [ ] Widget’tan kaydedilen cevap uygulama açılınca takvimde, sayaçta, paket geçmişinde ve günlük stokta aynı görünüyor; art arda basma ve uygulama/widget eşzamanlı kayıt denemesi veri çoğaltmıyor.
+- [ ] Paket yokken widget eylemi lens kullanımı kaydetmiyor ve görünümü tutarlı tutuyor.
+- [ ] Birkaç Android başlatıcıda widget boyutu, yeniden boyutlandırma, ekran yoğunluğu ve TalkBack etiketleri kontrol ediliyor.
 - [ ] 360 dp ve 412 dp genişlikte yatay taşma yok; sayaç kapakların içinde.
 - [ ] Yazı boyutu %200’de düğmeler ve takvim kullanılabilir.
 - [ ] Telefon koyu moddayken uygulama açık modda ve okunaklı kalıyor.
 - [ ] TalkBack sayaçları “Sağ göz: 12. gün, 30 günlük” gibi okuyor; takvim günleri tarih ve durumla okunuyor.
 
-## 8. Kalıcılık
+## 9. Kalıcılık
 - [ ] Uygulama kapatılıp açılınca kayıtlar duruyor.
 - [ ] Yeni APK sürümü üstüne kurulunca kayıtlar duruyor.
 - [ ] “Tüm verilerimi sil” onay istiyor, hatırlatmaları iptal ediyor ve kuruluma dönüyor.

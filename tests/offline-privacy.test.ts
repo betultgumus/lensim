@@ -1,5 +1,4 @@
-// Lensim holds health-related data: it must work without an account, sign-in or network,
-// keep records on the device and never send them to a cloud service. These checks guard that.
+// Guest mode is fully local. Optional signed-in accounts back up to a user-owned cloud row.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, readdirSync, statSync } from 'node:fs';
@@ -17,23 +16,32 @@ function sources(dir: string): string[] {
 }
 const appSources = [...sources('app'), ...sources('src')];
 
-test('no cloud, account, analytics or sync packages are installed', () => {
+test('only the optional account client is installed; advertising and analytics SDKs are absent', () => {
   const pkg = JSON.parse(read('package.json'));
   const deps = Object.keys({ ...pkg.dependencies, ...pkg.devDependencies });
-  const banned = /firebase|firestore|supabase|amplify|auth0|expo-auth-session|google-signin|appwrite|realm|analytics|segment|sentry|mixpanel|amplitude|posthog|onesignal|axios/i;
+  assert.ok(deps.includes('@supabase/supabase-js'));
+  const banned = /firebase|firestore|amplify|auth0|appwrite|realm|analytics|segment|sentry|mixpanel|amplitude|posthog|onesignal|google-mobile-ads|admob/i;
   assert.deepEqual(deps.filter(d => banned.test(d)), []);
 });
 
 test('app code makes no network requests and registers no push token', () => {
-  const banned = /\bfetch\s*\(|XMLHttpRequest|new WebSocket|EventSource|sendBeacon|getExpoPushTokenAsync|getDevicePushTokenAsync|firebase|https?:\/\//;
+  const banned = /\bfetch\s*\(|XMLHttpRequest|new WebSocket|EventSource|sendBeacon|getExpoPushTokenAsync|getDevicePushTokenAsync|firebase/;
   const offenders = appSources.filter(file => banned.test(read(file))).map(file => relative(root, join(root, file)));
   assert.deepEqual(offenders, []);
+  // The only public URLs in an app route are user-opened health references; they are not fetched by Lensim.
+  const help = read('app/help.tsx');
+  assert.match(help, /Linking\.openURL\(url\)/);
+  assert.equal((help.match(/https:\/\//g) ?? []).length, 4);
 });
 
-test('there is no sign-up or sign-in route; first launch goes straight to setup', () => {
+test('account is optional; first launch goes straight to lens setup', () => {
   const routes = sources('app').map(file => file.replace(/\\/g, '/'));
-  assert.deepEqual(routes.filter(route => /login|signin|sign-in|signup|sign-up|register|auth|account/i.test(route)), []);
-  assert.match(read('app/index.tsx'), /onboarded \? '\/\(tabs\)' : '\/onboarding'/);
+  assert.ok(routes.some(route => route === 'app/account.tsx'));
+  assert.ok(routes.some(route => route === 'app/auth/callback.tsx'));
+  assert.match(read('app/account.tsx'), /Misafir olarak kullan/);
+  assert.match(read('app/account.tsx'), /Google ile devam et/);
+  assert.match(read('app/account.tsx'), /E-posta ile giriş yap/);
+  assert.match(read('app/index.tsx'), /if \(!useApp\(\)\.state\.onboarded\) return <Redirect href="\/onboarding"\/>/);
   assert.match(read('app/(tabs)/_layout.tsx'), /if \(!state\.onboarded\) return <Redirect href="\/onboarding"\/>/);
   const fresh = defaultState();
   assert.equal(fresh.onboarded, false);
@@ -54,12 +62,22 @@ test('OS cloud backup is off on Android and over-the-air updates are disabled', 
   assert.match(config, /updates: \{ enabled: false \}/);
 });
 
-test('backup is a user-started local .json file, not an upload', () => {
+test('guest JSON backup is separate from optional account cloud sync', () => {
   const screen = read('app/settings/backup.tsx');
   assert.match(screen, /lensim-yedek-\$\{[^}]+\}\.json/);
-  assert.match(screen, /otomatik bulut yedeği yoktur/);
+  assert.doesNotMatch(screen, /services\/supabase/);
+  assert.match(read('src/services/accountSync.ts'), /writeCloudSnapshot/);
+  assert.match(read('supabase/migrations/202611200001_user_backups.sql'), /enable row level security/);
+  assert.match(read('supabase/migrations/202611200002_account_deletion.sql'), /delete from auth\.users where id = current_user_id/);
   assert.match(read('src/services/backupFile.web.ts'), /type: 'application\/json'/);
   assert.match(read('src/services/backupFile.ts'), /createFile\(name, 'application\/json'\)/);
+});
+
+test('research preference is local-only and no data transfer or ad network is active', () => {
+  const fresh = defaultState();
+  assert.equal(fresh.settings.researchSharing, 'undecided');
+  assert.match(read('src/domain/privacy.content.json'), /araştırma verisi toplamıyor|araştırma amacıyla paylaşmıyor/);
+  assert.doesNotMatch(read('src/services/accountSync.ts'), /researchSharing/);
 });
 
 test('reminders are scheduled as local device notifications', () => {
@@ -73,10 +91,3 @@ test('no sample, demo or test records ship in the app', () => {
   assert.deepEqual(offenders, []);
 });
 
-test('the preserved Flutter app also has no account or cloud sign-in flow', () => {
-  const settings = read('lensim_app/lib/ui/settings_screen.dart');
-  assert.doesNotMatch(settings, /Google ile giriş yap|Google ile giriş ve bulut yedeği|HESAP VE YEDEK/);
-  assert.match(settings, /Hesap veya internet gerekmez/);
-  const readme = read('lensim_app/README.md');
-  assert.doesNotMatch(readme, /Google ile giriş ve bulut yedeği \(Firebase\)/);
-});

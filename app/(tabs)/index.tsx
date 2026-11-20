@@ -27,14 +27,14 @@ function Progress({pack,duration,checkIns,today,height=9}:{pack:LensPackage;dura
 }
 
 /** Colour key for the progress strip; swatches use exactly the strip's colours. */
-function ProgressLegend(){
+function ProgressLegend({title='Renk açıklaması'}:{title?:string}){
   const items:Array<{label:string;fill:string;border?:string;dashed?:boolean}>=[{label:'Taktım',fill:palette.right},{label:'Takmadım',fill:palette.left},{label:'Gözlük',fill:palette.glasses},{label:'Cevapsız',fill:palette.unanswered},{label:'Kalan',fill:palette.upcoming,border:palette.upcomingBorder},{label:'Otomatik',fill:'#B9D1F3',border:'#7C93B5',dashed:true}];
   // Always one row: swatch, gaps and text all scale with `size`, so the measured row width is proportional to it
   // and one step from (available / natural width) lands on the size that fits (between 9 and 11.5 px).
   // On very narrow screens where even 9 px does not fit, the row wraps instead of clipping a label.
   const [size,setSize]=useState(11.5);const [wrap,setWrap]=useState(false);const avail=useRef(0);const natural=useRef(0);
   const fit=()=>{if(!avail.current||!natural.current)return;const raw=Math.floor(size*(avail.current/natural.current)*10)/10;const next=clamp(raw,9,11.5);if(Math.abs(next-size)>=.2)setSize(next);else if(!wrap&&raw<9-.05)setWrap(true);};
-  return <View accessibilityLabel="Renk açıklaması" onLayout={e=>{avail.current=e.nativeEvent.layout.width;fit();}} style={{alignSelf:'stretch',marginHorizontal:-8,overflow:'hidden',alignItems:'center'}}>
+  return <View accessibilityLabel={title} onLayout={e=>{avail.current=e.nativeEvent.layout.width;fit();}} style={{alignSelf:'stretch',marginHorizontal:-8,overflow:'hidden',alignItems:'center'}}>
     <View onLayout={e=>{natural.current=e.nativeEvent.layout.width;fit();}} style={{flexDirection:'row',flexWrap:wrap?'wrap':'nowrap',justifyContent:'center',columnGap:size*.55,rowGap:2,maxWidth:wrap?'100%':undefined}}>{items.map(item=><View key={item.label} style={{flexDirection:'row',alignItems:'center',gap:size*.28}}><View style={{width:size*.75,height:size*.75,borderRadius:3,backgroundColor:item.fill,borderWidth:item.border?1:0,borderColor:item.border,borderStyle:item.dashed?'dashed':'solid'}}/><Copy size={size} style={{color:palette.inkSoft,lineHeight:Math.round(size*1.35)}}>{item.label}</Copy></View>)}</View>
   </View>;
 }
@@ -45,20 +45,18 @@ function StatTiles({items,compact=false}:{items:Array<{label:string;value:string
 }
 
 function CaseSummary({ pack, checkIns, today, compact=false }: { pack:LensPackage; checkIns:any[]; today:string; compact?:boolean }) {
-  const {state}=useApp(); const box=state.boxes.find(b=>b.id===pack.boxId); if(!box)return null;
-  const duration=pack.durationDaysSnapshot??box.durationDays;const elapsed=daysOpen(pack.openedOn,today);
+  const {state}=useApp(); const box=state.boxes.find(b=>b.id===pack.boxId);
+  const duration=pack.durationDaysSnapshot??box?.durationDays??30;const elapsed=daysOpen(pack.openedOn,today);
   const wornDays=new Set(checkIns.filter(c=>c.status==='worn'&&c.date>=pack.openedOn&&c.date<=today).map(c=>c.date)).size;
   const remaining=Math.max(0,duration-elapsed);
   const expired=duration>1&&elapsed>duration;
   const wornThisMonth=new Set(checkIns.filter(c=>c.status==='worn'&&c.date.slice(0,7)===today.slice(0,7)).map(c=>c.date)).size;
-  const rx=pack.prescriptionSnapshot??box.prescription;const prescription=Object.entries(rx[pack.eye]??{}).map(([key,value])=>`${key.toUpperCase()} ${value}`).join(' · ');
   const openPackage=state.packages.find(p=>p.id===pack.id);
   return <Pressable accessibilityRole="button" onPress={()=>router.push({pathname:'/package/[id]',params:{id:pack.id}})} style={{flex:1,minWidth:0}}>
     <View style={{gap:compact?5:8}}>
-      <Copy size={compact?14:16} bold style={{color:expired?colors.danger:colors.ink}}>{duration===1?`${box.lensesRemaining} LENS KALDI`:expired?`SÜRE ${elapsed-duration} GÜN AŞTI`:remaining===0?'BUGÜN SON GÜN':`${remaining} GÜN KALDI`}</Copy>
+      <Copy size={compact?14:16} bold style={{color:expired?colors.danger:colors.ink}}>{duration===1?(box?`${box.lensesRemaining} LENS KALDI`:'GÜNLÜK LENS'):expired?`SÜRE ${elapsed-duration} GÜN AŞTI`:remaining===0?'BUGÜN SON GÜN':`${remaining} GÜN KALDI`}</Copy>
       {duration>1&&<Progress pack={pack} duration={duration} checkIns={checkIns} today={today} height={compact?7:9}/>}
-      <Copy size={compact?15:17} style={{color:colors.ink}}>{duration===1?`Bu ay ${wornThisMonth} gün taktın · Kutuda ${box.lensesRemaining} lens`:`${elapsed} gündür açık · ${wornDays} gün taktın · ${remaining} gün kaldı`}</Copy>
-      {!!prescription&&<Copy size={14} mono style={{color:'#405B86'}}>{prescription}</Copy>}
+      <Copy size={compact?15:17} style={{color:colors.ink}}>{duration===1?`Bu ay ${wornThisMonth} gün taktın${box?` · Kutuda ${box.lensesRemaining} lens`:''}`:`${elapsed} gündür açık · ${wornDays} gün taktın · ${remaining} gün kaldı`}</Copy>
       {!!openPackage?.closedOn&&<Copy muted size={14}>Geçmiş · {shortDate(pack.openedOn)} — {shortDate(openPackage.closedOn)}</Copy>}
     </View>
   </Pressable>;
@@ -69,38 +67,30 @@ function CaseSummary({ pack, checkIns, today, compact=false }: { pack:LensPackag
  * blue while the package is fresh, deep amber on a warm tile when the change day is near,
  * red when the period is over. All pairs are above 4.5:1 contrast.
  */
-function openDayTone(level:1|2|3){return level===3?{tone:'#B3261E',bg:'#FDECEE',border:'#F3C3C8'}:level===2?{tone:'#8A4B00',bg:'#FFF1DC',border:'#F2CC8F'}:{tone:'#0754C8',bg:'#E8F2FF',border:'#C6DCF6'};}
+function openDayTone(level:1|2|3){return level===3?{tone:'#B3261E',bg:'#FDECEE',border:'#F3C3C8'}:level===2?{tone:'#9A4A00',bg:'#FFF0E2',border:'#F6C28C'}:{tone:'#0754C8',bg:'#E8F2FF',border:'#C6DCF6'};}
 function durationLabel(days:number){return durationName(days).toLocaleUpperCase('tr-TR');}
-function prescriptionText(pack:LensPackage|undefined,boxes:ReturnType<typeof useApp>['state']['boxes']){
-  if(!pack)return '';
-  const box=boxes.find(b=>b.id===pack.boxId);if(!box)return '';
-  const rx=pack.prescriptionSnapshot??box.prescription;const values=Object.entries(rx[pack.eye]??{}).map(([k,v])=>`${k.toUpperCase()} ${v}`);
-  if(rx.color)values.unshift(rx.color);
-  return values.join(' · ');
-}
-
 function CombinedSummary({left,right,checkIns,today,boxes,separateEyes=false,compact=false,level=1}:{left:LensPackage;right:LensPackage;checkIns:any[];today:string;boxes:ReturnType<typeof useApp>['state']['boxes'];separateEyes?:boolean;compact?:boolean;level?:1|2|3}){
-  const leftBox=boxes.find(b=>b.id===left.boxId);const rightBox=boxes.find(b=>b.id===right.boxId);if(!leftBox||!rightBox)return null;
-  const leftDuration=left.durationDaysSnapshot??leftBox.durationDays;const rightDuration=right.durationDaysSnapshot??rightBox.durationDays;
+  const leftBox=boxes.find(b=>b.id===left.boxId);const rightBox=boxes.find(b=>b.id===right.boxId);
+  const leftDuration=left.durationDaysSnapshot??leftBox?.durationDays??30;const rightDuration=right.durationDaysSnapshot??rightBox?.durationDays??30;
   const elapsed=daysOpen(left.openedOn,today);const leftRemaining=Math.max(0,leftDuration-elapsed);const rightRemaining=Math.max(0,rightDuration-elapsed);
   const sameDuration=leftDuration===rightDuration;
   const ids=[left.id,right.id];
   const dates=new Set(checkIns.filter(c=>ids.includes(c.packageId)&&c.status==='worn'&&c.date>=left.openedOn&&c.date<=today).map(c=>c.date));
   const worn=dates.size;
   const leftExpired=elapsed>leftDuration;const rightExpired=elapsed>rightDuration;
-  const sharedRx=prescriptionText(left,boxes)===prescriptionText(right,boxes);
-  const rxLeft=prescriptionText(left,boxes);const rxRight=prescriptionText(right,boxes);
   const progress=(pack:LensPackage,duration:number,eye:'SOL'|'SAĞ',color:string)=><View key={pack.id} style={{gap:4}}>{(!sameDuration||separateEyes)&&<Copy size={14} bold style={{color}}>{eye} · {durationLabel(duration)}</Copy>}<Progress pack={pack} duration={duration} checkIns={checkIns} today={today}/></View>;
-  const stock=leftBox.id===rightBox.id?leftBox.lensesRemaining:leftBox.lensesRemaining+rightBox.lensesRemaining;
-  const remainingTile=leftExpired?{label:'Gün aşım',value:`+${elapsed-leftDuration}`,tone:colors.danger}:leftRemaining===0?null:{label:'Kalan gün',value:String(leftRemaining)};
-  const openTile={label:'Açık gün',value:String(elapsed),...openDayTone(level)};
+  const stock=(leftBox?.lensesRemaining??0)+(rightBox&&rightBox.id!==leftBox?.id?rightBox.lensesRemaining:0);
+  // Every tile shares the "Açık gün" tile's surface, so the row reads as one group in the card's state colour.
+  const tone=openDayTone(level);const surface={bg:tone.bg,border:tone.border};
+  const remainingTile=leftExpired?{label:'Gün aşım',value:`+${elapsed-leftDuration}`,tone:colors.danger,...surface}:leftRemaining===0?null:{label:'Kalan gün',value:String(leftRemaining),...surface};
+  const openTile={label:'Açık gün',value:String(elapsed),...tone};
+  const wornTile={label:'Takılan gün',value:String(worn),...surface};
   return <View style={{gap:compact?5:6}}>
     <View style={{alignItems:'center',gap:3}}>
       {sameDuration?<View style={{backgroundColor:'#D7E9FF',borderRadius:20,paddingHorizontal:14,paddingVertical:1}}><Copy size={12} bold style={{color:colors.ink,letterSpacing:.4,lineHeight:18}}>{durationLabel(leftDuration)}</Copy></View>:<View style={{flexDirection:'row',flexWrap:'wrap',justifyContent:'center',gap:8}}><View style={{backgroundColor:'#EAF4FF',borderRadius:20,paddingHorizontal:10,paddingVertical:2}}><Copy size={12} bold style={{color:colors.leftText}}>SOL · {durationLabel(leftDuration)}</Copy></View><View style={{backgroundColor:'#EAF4FF',borderRadius:20,paddingHorizontal:10,paddingVertical:2}}><Copy size={12} bold style={{color:colors.right}}>SAĞ · {durationLabel(rightDuration)}</Copy></View></View>}
-      {sharedRx&&!!rxLeft?<Copy size={14} mono style={{color:colors.ink,textAlign:'center'}}>{rxLeft}</Copy>:(!sharedRx&&!!(rxLeft||rxRight))?<View style={{gap:2,alignItems:'center'}}>{!!rxLeft&&<Copy size={14} mono style={{color:colors.leftText}}>SOL · {rxLeft}</Copy>}{!!rxRight&&<Copy size={14} mono style={{color:colors.right}}>SAĞ · {rxRight}</Copy>}</View>:null}
     </View>
-    {leftDuration===1?<StatTiles compact={compact} items={[{label:'Bu ay takılan gün',value:String(worn)},{label:'Kutuda lens',value:String(stock)}]}/>:<>
-      {sameDuration?<StatTiles compact={compact} items={[openTile,{label:'Pakette takılan gün',value:String(worn)},...(remainingTile?[remainingTile]:[])]}/>:<><StatTiles compact={compact} items={[openTile,{label:'Pakette takılan gün',value:String(worn)}]}/><View style={{flexDirection:'row',justifyContent:'space-between',gap:8}}><Copy size={14} bold style={{color:leftExpired?colors.danger:colors.ink}}>SOL · {leftExpired?`+${elapsed-leftDuration} gün aşım`:leftRemaining===0?'Bugün son gün':`${leftRemaining} gün kaldı`}</Copy><Copy size={14} bold style={{color:rightExpired?colors.danger:colors.ink,textAlign:'right'}}>SAĞ · {rightExpired?`+${elapsed-rightDuration} gün aşım`:rightRemaining===0?'Bugün son gün':`${rightRemaining} gün kaldı`}</Copy></View></>}
+    {leftDuration===1?<StatTiles compact={compact} items={[{label:'Bu ay takılan gün',value:String(worn)},...(leftBox||rightBox?[{label:'Kutuda lens',value:String(stock)}]:[])]}/>:<>
+      {sameDuration?<StatTiles compact={compact} items={[openTile,wornTile,...(remainingTile?[remainingTile]:[])]}/>:<><StatTiles compact={compact} items={[openTile,wornTile]}/><View style={{flexDirection:'row',justifyContent:'space-between',gap:8}}><Copy size={14} bold style={{color:leftExpired?colors.danger:colors.ink}}>SOL · {leftExpired?`+${elapsed-leftDuration} gün aşım`:leftRemaining===0?'Bugün son gün':`${leftRemaining} gün kaldı`}</Copy><Copy size={14} bold style={{color:rightExpired?colors.danger:colors.ink,textAlign:'right'}}>SAĞ · {rightExpired?`+${elapsed-rightDuration} gün aşım`:rightRemaining===0?'Bugün son gün':`${rightRemaining} gün kaldı`}</Copy></View></>}
       {sameDuration&&!separateEyes?progress(left,leftDuration,'SOL',colors.leftText):<View style={{gap:6}}>{progress(left,leftDuration,'SOL',colors.leftText)}{progress(right,rightDuration,'SAĞ',colors.right)}</View>}
     </>}
   </View>;
@@ -122,8 +112,8 @@ function CapCount({eye,pack,today,caseWidth}:{eye:'left'|'right';pack?:LensPacka
   const faceWidth=caseWidth*CASE.faceRx*2,faceHeight=caseWidth*CASE.faceRy;
   let labelSize=clamp(Math.round(caseWidth*.036),11,15);
   const label=()=><Copy bold size={labelSize} style={{color:ink,lineHeight:Math.round(labelSize*1.2),letterSpacing:.6}}>{isRight?'SAĞ · R':'SOL · L'}</Copy>;
-  if(!pack||!box)return <View style={{alignItems:'center'}}>{label()}<Copy size={labelSize+1} style={{color:faded}}>Paket yok</Copy></View>;
-  const duration=pack.durationDaysSnapshot??box.durationDays;const elapsed=daysOpen(pack.openedOn,today);
+  if(!pack)return <View style={{alignItems:'center'}}>{label()}<Copy size={labelSize+1} style={{color:faded}}>Paket yok</Copy></View>;
+  const duration=pack.durationDaysSnapshot??box?.durationDays??30;const elapsed=daysOpen(pack.openedOn,today);
   const monthCount=new Set(state.checkIns.filter(c=>c.status==='worn'&&c.date.slice(0,7)===today.slice(0,7)).map(c=>c.date)).size;
   const count=duration===1?String(monthCount):String(elapsed);const total=duration===1?'/AY':`/${duration}`;
   // Count and total sit side by side on one baseline; the count is ~1.85× the total. Both are sized from the cap face
@@ -131,29 +121,30 @@ function CapCount({eye,pack,today,caseWidth}:{eye:'left'|'right';pack?:LensPacka
   let countSize=clamp(Math.round(caseWidth*.14),26,84);if(count.length>=3)countSize=Math.round(countSize*.8);
   let totalSize=countSize/1.85;
   const overdue=duration>1&&elapsed>duration;
-  // The overdue badge adds side padding, so it is counted in the width that has to fit on the cap.
-  const rowWidth=count.length*.6*countSize+total.length*.6*totalSize+2+(overdue?countSize*.5:0);
+  const rowWidth=count.length*.6*countSize+total.length*.6*totalSize+2;
   const k=Math.min(1,faceWidth*.8/rowWidth,faceHeight*.78/(labelSize*1.2+countSize*1.05));
   if(k<1){labelSize=Math.max(8,Math.floor(labelSize*k));countSize=Math.floor(countSize*k);totalSize=countSize/1.85;}
   totalSize=Math.max(8,Math.round(totalSize));
   return <View accessible accessibilityLabel={`${isRight?'Sağ':'Sol'} göz: ${duration===1?`bu ay ${count} gün`:`${count}. gün, ${duration} günlük${overdue?', süre doldu':''}`}`} style={{alignItems:'center',justifyContent:'center'}}>
     {label()}
-    {/* Over the duration both caps use the same warning: a red badge with white numbers, whatever the cap colour. */}
-    <View style={[{flexDirection:'row',alignItems:'baseline'},overdue&&{backgroundColor:colors.danger,borderRadius:999,paddingHorizontal:Math.round(countSize*.22),borderWidth:1.5,borderColor:'#FFFFFF'}]}>
-      <Copy bold size={countSize} style={{color:overdue?'#FFFFFF':ink,lineHeight:Math.round(countSize*1.05),fontVariant:['tabular-nums'],letterSpacing:-.5}}>{count}</Copy>
-      <Copy mono size={totalSize} style={{color:overdue?'#FFD6DB':faded,lineHeight:Math.round(totalSize*1.2),marginLeft:1}}>{total}</Copy>
+    {/* Overdue days tint only the numeral; the lens-cap glass keeps its normal appearance. */}
+    <View style={{flexDirection:'row',alignItems:'baseline'}}>
+      <Copy bold size={countSize} style={{color:overdue?colors.danger:ink,lineHeight:Math.round(countSize*1.05),fontVariant:['tabular-nums'],letterSpacing:-.5}}>{count}</Copy>
+      <Copy mono size={totalSize} style={{color:faded,lineHeight:Math.round(totalSize*1.2),marginLeft:1}}>{total}</Copy>
     </View>
   </View>;
 }
 
-function LensCaseArt({left,right,today,estimate,maxWidth}:{left?:LensPackage;right?:LensPackage;today:string;estimate:number;maxWidth?:number}){
+/** Each cap is its own touch target: an open package opens that eye's cycle summary, an empty cap starts a new package for that eye. */
+function LensCaseArt({left,right,today,estimate,maxWidth,onPressEye}:{left?:LensPackage;right?:LensPackage;today:string;estimate:number;maxWidth?:number;onPressEye:(eye:'left'|'right',hasPackage:boolean)=>void}){
   const [measured,setMeasured]=useState(0);const width=measured||(maxWidth?Math.min(estimate,maxWidth):estimate);const height=width/CASE.aspect;
   const imageWidth=width*CASE.scale*CASE.zoom;const imageHeight=imageWidth/2;
   const imageLeft=(width-imageWidth*CASE.content.width)/2-imageWidth*CASE.content.left;const imageTop=(height-imageHeight*CASE.content.height)/2-imageHeight*CASE.content.top;
   return <View onLayout={e=>{const w=Math.round(e.nativeEvent.layout.width);if(w&&w!==measured)setMeasured(w);}} style={{width:'100%',maxWidth,alignSelf:'center',aspectRatio:CASE.aspect,overflow:'hidden'}}>
     <Image source={require('../../assets/contact-lens-case.png')} resizeMode="stretch" style={{position:'absolute',left:imageLeft,top:imageTop,width:imageWidth,height:imageHeight}} accessibilityLabel="Sol ve sağ lens kutusu"/>
     {(['left','right'] as const).map(eye=>{const face=CASE.faces[eye];const w=imageWidth*CASE.faceRx*2,h=imageHeight*CASE.faceRy*2;const cx=imageLeft+imageWidth*face.cx,cy=imageTop+imageHeight*face.cy;
-      return <View key={eye} pointerEvents="none" style={{position:'absolute',left:cx-w/2,top:cy-h/2,width:w,height:h,alignItems:'center',justifyContent:'center'}}><CapCount eye={eye} pack={eye==='left'?left:right} today={today} caseWidth={imageWidth}/></View>;})}
+      const pack=eye==='left'?left:right;const name=eye==='left'?'Sol':'Sağ';
+      return <Pressable key={eye} accessibilityRole="button" accessibilityHint={pack?`${name} gözün lens döngüsü özetini açar`:`${name} göz için yeni paket açar`} onPress={()=>onPressEye(eye,!!pack)} style={({pressed})=>({position:'absolute',left:cx-w/2,top:cy-h/2,width:w,height:h,borderRadius:w/2,alignItems:'center',justifyContent:'center',opacity:pressed?.72:1,transform:[{scale:pressed?.97:1}]})}><CapCount eye={eye} pack={pack} today={today} caseWidth={imageWidth}/></Pressable>;})}
   </View>;
 }
 
@@ -195,13 +186,13 @@ function DayAnswer({question,prefix,status,automatic=false,meta,options,showIcon
 
 /** "Kutuda kalan" info row under "Yeni paket açtım": icon + label, then one quiet chip per eye (and a spare chip when
  * a shared box has an odd lens). Information only, so it reads as one accessible line; chips wrap on narrow screens. */
-function StockRow({items,spare}:{items:Array<{eye:string;count:number}>;spare:number}){
+function StockRow({items}:{items:Array<{eye:string;count:number}>}){
   const chip=(key:string,label:string,count:number)=><View key={key} style={{flexDirection:'row',alignItems:'baseline',gap:4,paddingHorizontal:10,paddingVertical:3,borderRadius:999,backgroundColor:'#E4EFFD'}}>
     <Copy size={13} style={{color:palette.inkSoft,lineHeight:18}}>{label}</Copy>
     <Copy bold size={15} style={{color:colors.ink,lineHeight:20,fontVariant:['tabular-nums']}}>{count}</Copy>
     <Copy size={13} style={{color:palette.inkSoft,lineHeight:18}}>lens</Copy>
   </View>;
-  const spoken=`Kutuda kalan: ${items.map(i=>`${i.eye.toLocaleLowerCase('tr-TR')} ${i.count} lens`).join(', ')}${spare?`, ${spare} yedek lens`:''}`;
+  const spoken=`Kutuda kalan: ${items.map(i=>`${i.eye.toLocaleLowerCase('tr-TR')} ${i.count} lens`).join(', ')}`;
   return <View accessible accessibilityLabel={spoken} style={{flexDirection:'row',flexWrap:'wrap',alignItems:'center',rowGap:6,columnGap:10,paddingHorizontal:12,paddingVertical:7,borderRadius:14,backgroundColor:'#F5F9FF',borderWidth:1,borderColor:'#E1ECF9'}}>
     <View style={{flexDirection:'row',alignItems:'center',gap:6}}>
       <Ionicons name="cube-outline" size={18} color="#0754C8"/>
@@ -210,7 +201,6 @@ function StockRow({items,spare}:{items:Array<{eye:string;count:number}>;spare:nu
     </View>
     <View style={{flex:1,flexDirection:'row',flexWrap:'wrap',justifyContent:'flex-end',gap:6}}>
       {items.map(i=>chip(i.eye,i.eye,i.count))}
-      {spare>0&&<View style={{flexDirection:'row',alignItems:'baseline',gap:4,paddingHorizontal:10,paddingVertical:3,borderRadius:999,backgroundColor:'#EEF5FF'}}><Copy size={13} style={{color:palette.inkSoft,lineHeight:18}}>Yedek</Copy><Copy bold size={15} style={{color:colors.ink,lineHeight:20}}>{spare}</Copy></View>}
     </View>
   </View>;
 }
@@ -301,15 +291,14 @@ export default function Home() {
   const [multi,setMulti]=useState(false);const [picked,setPicked]=useState<string[]>([]);const [multiNote,setMultiNote]=useState<string|null>(null);
   const right=active.find(p=>p.eye==='right'); const left=active.find(p=>p.eye==='left');
   const leftBox=left?state.boxes.find(b=>b.id===left.boxId):undefined;const rightBox=right?state.boxes.find(b=>b.id===right.boxId):undefined;
-  // Spare lenses per eye, from the boxes the open packages came from (opening a package takes one lens out of its box).
-  // A box shared by both eyes is split evenly; an odd spare lens is shown separately.
-  const stock=((): {items:Array<{eye:'Sol'|'Sağ';count:number}>;spare:number}|null=>{
+  // Show actual remaining stock; a shared box appears once so an odd lens is never mislabeled as a spare.
+  const stock=((): {items:Array<{eye:'Sol'|'Sağ'|'İki göz için ortak kutu';count:number}>}|null=>{
     if(left&&right&&leftBox&&rightBox){
-      if(leftBox.id===rightBox.id){const r=leftBox.lensesRemaining;const per=Math.floor(r/2);return {items:[{eye:'Sol',count:per},{eye:'Sağ',count:per}],spare:r%2};}
-      return {items:[{eye:'Sol',count:leftBox.lensesRemaining},{eye:'Sağ',count:rightBox.lensesRemaining}],spare:0};
+      if(leftBox.id===rightBox.id)return {items:[{eye:'İki göz için ortak kutu',count:leftBox.lensesRemaining}]};
+      return {items:[{eye:'Sol',count:leftBox.lensesRemaining},{eye:'Sağ',count:rightBox.lensesRemaining}]};
     }
-    if(left&&leftBox)return {items:[{eye:'Sol',count:leftBox.lensesRemaining}],spare:0};
-    if(right&&rightBox)return {items:[{eye:'Sağ',count:rightBox.lensesRemaining}],spare:0};
+    if(left&&leftBox)return {items:[{eye:'Sol',count:leftBox.lensesRemaining}]};
+    if(right&&rightBox)return {items:[{eye:'Sağ',count:rightBox.lensesRemaining}]};
     return null;
   })();
   const sharedOpening=!!left&&!!right&&left.openedOn===right.openedOn&&(left.durationDaysSnapshot??leftBox?.durationDays)===(right.durationDaysSnapshot??rightBox?.durationDays);
@@ -325,7 +314,7 @@ export default function Home() {
   const yesterday=addDays(today,-1);const yesterdayAuto=autoDays.find(c=>c.date===yesterday);
   const answerName=(status:string)=>status==='worn'?'Taktım':status==='glasses'?'Gözlük':'Takmadım';
   const autoStatuses=[...new Set(autoDays.map(c=>c.status))];
-  const autoLine=yesterdayAuto?`Dün cevap vermedin, “${answerName(yesterdayAuto.status)}” sayıldı.`:autoDays.length?`${autoDays.length} gün cevapsız kaldı ve ${autoStatuses.length===1?`“${answerName(autoStatuses[0]!)}”`:'varsayılan cevapla'} sayıldı.`:'';
+  const autoLine=yesterdayAuto?`${formatDate(yesterdayAuto.date)} için yanıt gelmedi. Ayarına göre “${answerName(yesterdayAuto.status)}” olarak kaydedildi.`:autoDays.length?`${autoDays.length} gün cevapsız kaldı ve ${autoStatuses.length===1?`“${answerName(autoStatuses[0]!)}”`:'varsayılan cevapla'} sayıldı.`:'';
   const autoDetail=autoDays.length>1?`Bu paketlerde toplam ${autoDays.length} gün otomatik dolduruldu (cevap verilmeyen her gün, ertesi gün 02.00’de “${answerName(state.settings.defaultAnswer)}” sayılır).`:'';
   const unanswered=unansweredDays(state,today);
   const activeToday=active.filter(p=>p.openedOn<=today&&(!p.closedOn||p.closedOn>=today));
@@ -333,7 +322,7 @@ export default function Home() {
   const saveStatus=async(status:'worn'|'notWorn'|'glasses',date=today)=>{
     try{await markDay(date,status);}catch(e){showError(e);}
   };
-  const changeYesterday=async(status:'worn'|'notWorn'|'glasses')=>saveStatus(status,yesterday);
+  const openAutoRecord=(date:string)=>{setMonth(date.slice(0,7)+'-01');setSelectedDay(date);stopMulti();goToPage('calendar');};
   const firstDay=parseDate(month),offset=(firstDay.getDay()+6)%7,gridStart=addDays(month,-offset),calendarDays=Array.from({length:42},(_,i)=>addDays(gridStart,i));
   const selectedRecord=state.dailyStatuses.find(c=>c.date===selectedDay);
   const selectedStatus=selectedRecord?.status??null;const selectedAuto=selectedRecord?.automatic??false;const selectedApplicable=state.packages.some(p=>p.openedOn<=selectedDay&&(!p.closedOn||selectedDay<=p.closedOn));
@@ -361,6 +350,8 @@ export default function Home() {
   // unanswered days already ticked, so they can be marked in one step.
   useEffect(()=>{
     if(params.page==='calendar'&&!params.mark){goToPage('calendar');router.setParams({page:undefined});return;}
+    // Widget tap or a notification answer: always land on the lens case, even if the calendar page was left open.
+    if(params.page==='today'&&!params.mark){goToPage('today');router.setParams({page:undefined});return;}
     if(!params.mark)return;
     const from=params.mark;const days=unansweredDays(state,today).filter(d=>d>=from);
     setMonth((days[0]??from).slice(0,7)+'-01');goToPage('calendar');startMulti(days);router.setParams({mark:undefined,page:undefined});
@@ -370,9 +361,11 @@ export default function Home() {
   const owlText=owlLevel===3?'Baykuş uyarıyor: lens süresi doldu':owlLevel===2?'Baykuş hatırlatıyor: değişim yaklaşıyor':'Baykuş neşeli: lensler yeni';
   // Card state. A coloured glow around the card (blue / amber / red) shows the state at a glance; the card itself stays
   // light so numbers keep their contrast. Pages are padded so the glow is not clipped by the pager.
-  const glow=owlLevel===3?{backgroundColor:'#FFF5F6',borderWidth:2,borderColor:'#E0404F',shadowColor:'#F0263C',shadowOpacity:.75,shadowRadius:24,shadowOffset:{width:0,height:0},elevation:12}:owlLevel===2?{backgroundColor:'#FFF8EC',borderWidth:2,borderColor:'#F0A030',shadowColor:'#FF9F1A',shadowOpacity:.75,shadowRadius:24,shadowOffset:{width:0,height:0},elevation:10}:{backgroundColor:'#FFFFFF',borderWidth:1.5,borderColor:'#6FA8EE',shadowColor:'#1F7BFF',shadowOpacity:.6,shadowRadius:24,shadowOffset:{width:0,height:0},elevation:8};
-  const calendarGlow={...glow,backgroundColor:'#FFFFFF'};
-  const answerOptions=[{value:'worn',title:'Taktım',icon:'checkmark-circle-outline' as const,selectedColor:colors.right},{value:'notWorn',title:'Takmadım',icon:'close-circle-outline' as const,selectedColor:palette.notWornSelected},{value:'glasses',title:'Gözlük',icon:'glasses-outline' as const,selectedColor:palette.glasses}];
+  // The card surface stays clean white in every state (a cream/pink fill looked muddy); the state is carried by the
+  // border and the glow. The overdue glow uses a spread box shadow so it reads clearly on Android and the web too.
+  const glow=owlLevel===3?{backgroundColor:'#FFFFFF',borderWidth:2,borderColor:'#E0404F',shadowColor:'#F0263C',shadowOpacity:1,shadowRadius:12,shadowOffset:{width:0,height:0},elevation:16,boxShadow:'0 0 10px 3px rgba(240, 38, 60, 0.6)'}:owlLevel===2?{backgroundColor:'#FFFFFF',borderWidth:2,borderColor:'#F08C00',shadowColor:'#F08C00',shadowOpacity:.7,shadowRadius:24,shadowOffset:{width:0,height:0},elevation:10}:{backgroundColor:'#FFFFFF',borderWidth:1.5,borderColor:'#6FA8EE',shadowColor:'#1F7BFF',shadowOpacity:.6,shadowRadius:24,shadowOffset:{width:0,height:0},elevation:8};
+  const calendarGlow={backgroundColor:'#FFFFFF',borderWidth:1,borderColor:'#D6E5F6'};
+  const answerOptions=[{value:'worn',title:'Taktım',icon:'checkmark-circle-outline' as const,selectedColor:colors.right},{value:'notWorn',title:'Takmadım',icon:'close-circle-outline' as const,selectedColor:palette.left},{value:'glasses',title:'Gözlük',icon:'glasses-outline' as const,selectedColor:palette.glasses}];
   // Icons only when each button still fits icon + “Takmadım” in full (≈104 px); otherwise text only, never truncated.
   const showIcons=(pageWidth-52)/3>=104;
   // The calendar card has more padding than the lens card, so its answer buttons drop icons sooner to keep “Takmadım” whole.
@@ -398,11 +391,10 @@ export default function Home() {
     {active.length>0&&<View onLayout={onPagerLayout} style={{width:'100%'}}>
      <ScrollView ref={pager} horizontal pagingEnabled nestedScrollEnabled directionalLockEnabled showsHorizontalScrollIndicator={false} decelerationRate="fast" scrollEventThrottle={16} contentOffset={{x:activePage==='calendar'?pageWidth:0,y:0}} onScroll={onPagerScroll} onMomentumScrollEnd={onPagerEnd} onScrollEndDrag={Platform.OS==='web'?onPagerEnd:undefined} style={{width:pageWidth,flexGrow:0,height:pagerHeight}} contentContainerStyle={{alignItems:'flex-start'}}>
      <View onLayout={measurePage('today')} aria-hidden={!onToday} importantForAccessibility={onToday?'auto':'no-hide-descendants'} style={{width:pageWidth,padding:14}}><View style={{borderRadius:18,paddingHorizontal:14,paddingTop:tight?6:8,paddingBottom:tight?10:12,gap:tight?8:10,...glow}}>
-        <View style={{flexDirection:'row',alignItems:'center',justifyContent:'space-between'}}>
+        <View style={{flexDirection:'row',alignItems:'center',minHeight:36}}>
           <Copy size={15} bold mono style={{color:palette.inkSoft,letterSpacing:1}}>LENS KUTUN</Copy>
-          <PressScale accessibilityRole="button" accessibilityLabel="Lens döngüsü özetini aç" accessibilityHint="Paket süresi, stok ve takılan günler" hitSlop={8} onPress={()=>router.push('/cycle')} style={{width:36,height:36,borderRadius:18,backgroundColor:'#E8F2FF',borderWidth:1,borderColor:'#C6DCF6',alignItems:'center',justifyContent:'center'}}><Ionicons name="arrow-forward" size={20} color="#0754C8"/></PressScale>
         </View>
-        <View style={{marginHorizontal:-10}}><LensCaseArt left={left} right={right} today={today} estimate={pageWidth-18} maxWidth={artMaxWidth}/></View>
+        <View style={{marginHorizontal:-10}}><LensCaseArt left={left} right={right} today={today} estimate={pageWidth-18} maxWidth={artMaxWidth} onPressEye={(eye,hasPackage)=>hasPackage?router.push({pathname:'/cycle',params:{eye}}):router.push({pathname:'/package/new',params:{eye}})}/></View>
         {activeToday.length>0&&<View style={{marginHorizontal:-6}}><DayAnswer question="Bugün lens taktın mı?" prefix="Bugün" status={markedStatus} meta={`${monthWear} gün bu ay`} options={answerOptions} showIcons={showIcons} onSelect={value=>saveStatus(value)}/></View>}
         {sharedOpening&&left&&right&&<CombinedSummary left={left} right={right} checkIns={state.checkIns} today={today} boxes={state.boxes} separateEyes={state.settings.separateEyeCalendars} compact={tight} level={owlLevel}/>}
         {!sharedOpening&&(left||right)&&<View style={{flexDirection:'row',gap:14}}>{left&&<CaseSummary pack={left} checkIns={state.checkIns} today={today} compact/>}{right&&<CaseSummary pack={right} checkIns={state.checkIns} today={today} compact/>}</View>}
@@ -415,10 +407,12 @@ export default function Home() {
         </View>
       </View></View>
      <View onLayout={measurePage('calendar')} aria-hidden={onToday} importantForAccessibility={onToday?'no-hide-descendants':'auto'} style={{width:pageWidth,padding:14}}><Card style={{borderRadius:18,padding:14,gap:10,...calendarGlow}}><View style={{flexDirection:'row',justifyContent:'space-between',alignItems:'center'}}><Pressable accessibilityRole="button" accessibilityLabel="Önceki ay" onPress={()=>setMonth(addMonths(month,-1))} style={{width:48,height:48,alignItems:'center',justifyContent:'center'}}><Ionicons name="chevron-back" size={24} color={colors.ink}/></Pressable><Copy size={16} bold>{firstDay.toLocaleDateString('tr-TR',{month:'long',year:'numeric'})}</Copy><Pressable accessibilityRole="button" accessibilityLabel="Sonraki ay" disabled={month.slice(0,7)>=today.slice(0,7)} onPress={()=>setMonth(addMonths(month,1)>today.slice(0,7)+'-01'?today.slice(0,7)+'-01':addMonths(month,1))} style={{width:48,height:48,alignItems:'center',justifyContent:'center',opacity:month.slice(0,7)>=today.slice(0,7)?.3:1}}><Ionicons name="chevron-forward" size={24} color={colors.ink}/></Pressable></View>
+      <ProgressLegend title="Takvim renk açıklaması"/>
       <View style={{flexDirection:'row'}}>{['Pt','Sa','Ça','Pe','Cu','Ct','Pz'].map(d=><View key={d} style={{flex:1,alignItems:'center'}}><Copy size={14} muted>{d}</Copy></View>)}</View>
-      <View style={{flexDirection:'row',flexWrap:'wrap'}}>{calendarDays.map(day=>{const entry=entryForDay(day);const tone=dayTone(entry);const ticked=multi&&picked.includes(day);const isSelected=!multi&&selectedDay===day;const pickable=multi&&editableDay(day);
-        return <Pressable key={day} accessibilityRole={multi?'checkbox':'button'} accessibilityLabel={`${formatDate(day)} · ${tone.label}`} accessibilityState={multi?{checked:ticked,disabled:!pickable}:{selected:isSelected}} onPress={()=>pressDay(day)} style={{width:'14.285%',height:48,padding:2,opacity:day.slice(0,7)===month.slice(0,7)?(multi&&!pickable?.45:1):.35}}>
-          <View style={{flex:1,borderRadius:12,alignItems:'center',justifyContent:'center',backgroundColor:tone.fill,borderWidth:isSelected||ticked?2:entry?.automatic?1:0,borderStyle:entry?.automatic&&!isSelected&&!ticked?'dashed':'solid',borderColor:isSelected||ticked?colors.ink:'#7C93B5'}}><Copy size={15} bold={day===today||isSelected||ticked} style={{color:tone.text,lineHeight:18}}>{Number(day.slice(-2))}</Copy>{entry?.status==='glasses'&&<Ionicons name="glasses-outline" size={11} color={tone.text}/>}</View>
+      <View style={{flexDirection:'row',flexWrap:'wrap'}}>{calendarDays.map(day=>{const entry=entryForDay(day);const tone=dayTone(entry);const ticked=multi&&picked.includes(day);const isSelected=!multi&&selectedDay===day;const pickable=multi&&editableDay(day);const pending= !entry&&day<today;const upcoming=!entry&&day>today;
+        const spoken=entry?tone.label:pending?'Cevapsız':upcoming?'Kalan':'Bugün · kayıt yok';
+        return <Pressable key={day} accessibilityRole={multi?'checkbox':'button'} accessibilityLabel={`${formatDate(day)} · ${spoken}`} accessibilityState={multi?{checked:ticked,disabled:!pickable}:{selected:isSelected}} onPress={()=>pressDay(day)} style={{width:'14.285%',height:48,padding:2,opacity:day.slice(0,7)===month.slice(0,7)?(multi&&!pickable?.45:1):.35}}>
+          <View style={{flex:1,borderRadius:12,alignItems:'center',justifyContent:'center',backgroundColor:entry?tone.fill:pending?palette.unanswered:'#FFFFFF',borderWidth:isSelected||ticked?2:entry?.automatic||upcoming?1:0,borderStyle:entry?.automatic&&!isSelected&&!ticked?'dashed':'solid',borderColor:isSelected||ticked?colors.ink:upcoming?'#B8CBE3':'#7C93B5'}}><Copy size={15} bold={day===today||isSelected||ticked} style={{color:entry?tone.text:colors.ink,lineHeight:18}}>{Number(day.slice(-2))}</Copy>{entry?.status==='glasses'&&<Ionicons name="glasses-outline" size={11} color={tone.text}/>}</View>
           {pickable&&<View pointerEvents="none" style={{position:'absolute',top:0,right:0,width:17,height:17,borderRadius:9,alignItems:'center',justifyContent:'center',backgroundColor:ticked?'#0754C8':'#FFFFFF',borderWidth:1.5,borderColor:ticked?'#FFFFFF':'#9DB8DA'}}>{ticked&&<Ionicons name="checkmark" size={11} color="#FFFFFF"/>}</View>}
         </Pressable>})}</View>
       <View style={{flexDirection:'row',justifyContent:'space-between'}}><Copy size={15} bold style={{color:colors.right}}>Bu ay {monthWear} gün lens</Copy><Copy size={15} bold style={{color:palette.glassesText}}>{monthGlasses} gün gözlük</Copy></View>{openedThisMonth&&<Copy size={14} muted>Bu ay açılan paket · {daysOpen(openedThisMonth.openedOn,today)} gündür açık</Copy>}
@@ -439,9 +433,9 @@ export default function Home() {
     {!active.length&&<Card style={{borderRadius:16,borderColor:'#BBD5F1'}}><Copy size={22} bold style={{color:colors.ink}}>İlk lens paketini ekle</Copy><Copy>Önce kutunu ve hangi göz için olduğunu seç. Sayım açılış gününden başlar.</Copy><Button title="İlk lens paketini ekle" icon="add" onPress={()=>router.push('/package/new')}/></Card>}
 
     {/* Spare-lens stock sits with the action that uses it up. */}
-    {active.length>0&&<View style={{gap:6}}><Button title="Yeni paket açtım" secondary outlined icon="add" onPress={()=>router.push('/package/new')}/>{stock&&<StockRow items={stock.items} spare={stock.spare}/>}</View>}
+    {active.length>0&&<View style={{gap:6}}><Button title="Yeni paket açtım" secondary outlined icon="add" onPress={()=>router.push('/package/new')}/>{stock&&<StockRow items={stock.items}/>}</View>}
     {unanswered.length>0&&<Card style={{borderRadius:16,borderColor:'#F2CC8F',backgroundColor:'#FFF8EC',padding:14,gap:10}}><Copy bold size={15} style={{color:colors.ink,lineHeight:20}}>{unanswered.length} gün henüz işaretlenmedi</Copy><Copy size={14} style={{color:palette.inkSoft}}>{unanswered.length===1?formatDate(unanswered[0]!):`${shortDate(unanswered[0]!)} – ${shortDate(unanswered.at(-1)!)}`} arası, paketi Lensim’e eklemeden önceki günler. Takılan gün sayısına girmeleri için işaretle.</Copy><View style={{flexDirection:'row'}}><QuietAction title="Takvimde işaretle" icon="checkmark-done-outline" onPress={()=>{setMonth(unanswered[0]!.slice(0,7)+'-01');goToPage('calendar');startMulti(unanswered);}}/></View></Card>}
-    {!!autoLine&&<Card style={{borderRadius:16,borderColor:'#B9D1F3',backgroundColor:'#F3F8FF',padding:14,gap:10}}><Copy bold size={15} style={{color:colors.ink,lineHeight:20}}>{autoLine}</Copy>{!!autoDetail&&<Copy size={14} style={{color:palette.inkSoft}}>{autoDetail}</Copy>}{yesterdayAuto?<View style={{flexDirection:'row',flexWrap:'wrap',gap:8}}><QuietAction title="Dün taktım" onPress={()=>changeYesterday('worn')}/><QuietAction title="Dün takmadım" onPress={()=>changeYesterday('notWorn')}/><QuietAction wide title="Dün gözlük kullandım" icon="glasses-outline" onPress={()=>changeYesterday('glasses')}/></View>:null}{(!yesterdayAuto||autoDays.length>1)&&<View style={{flexDirection:'row'}}><QuietAction title="Takvimde kontrol et" icon="calendar-outline" onPress={()=>{const first=autoDays[0]?.date;if(first)setMonth(first.slice(0,7)+'-01');goToPage('calendar');}}/></View>}</Card>}
+    {!!autoLine&&<Card style={{borderRadius:16,borderColor:'#B9D1F3',backgroundColor:'#F3F8FF',padding:14,gap:10}}><Copy bold size={15} style={{color:colors.ink,lineHeight:20}}>{autoLine}</Copy>{!!autoDetail&&<Copy size={14} style={{color:palette.inkSoft}}>{autoDetail}</Copy>}<View style={{flexDirection:'row'}}><QuietAction title="Kaydı düzelt" icon="calendar-outline" onPress={()=>openAutoRecord(yesterdayAuto?.date??autoDays[0]!.date)}/></View></Card>}
     <OpeningChoice prompt={openingPrompt} onChoose={resolveOpening} onCancel={cancelOpening}/>
   </Screen>;
 }

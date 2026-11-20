@@ -40,6 +40,21 @@ export async function notificationAccess(): Promise<NotificationAccess> {
 /** Opens Lensim's page in the phone settings, where notifications can be allowed. */
 export async function openNotificationSettings() { await Linking.openSettings(); }
 
+/**
+ * Android 12+ "Alarmlar ve hatırlatıcılar" (exact alarm) access. Without it Android schedules the reminders as
+ * inexact alarms, which battery saving can push back by hours or drop on some phones — the reason a reminder can
+ * arrive on one phone and never on another. Always true below Android 12, on iOS and when the check fails.
+ */
+export async function exactAlarmAccess(): Promise<boolean> {
+  if (Platform.OS !== 'android') return true;
+  try { return (await Notifications.getExactAlarmPermissionsAsync()).granted; } catch { return true; }
+}
+/** Opens the system screen that allows exact alarms; resolves with the new state when the person comes back. */
+export async function requestExactAlarms(): Promise<boolean> {
+  if (Platform.OS !== 'android') return true;
+  try { return (await Notifications.requestExactAlarmPermissionsAsync()).granted; } catch { await Linking.openSettings(); return exactAlarmAccess(); }
+}
+
 export async function requestNotifications(): Promise<boolean> {
   // On Android 13+ the channel must exist before asking, otherwise the system dialog is not shown.
   await prepareChannelAndActions();
@@ -49,9 +64,11 @@ export async function syncNotifications(state: AppState) {
   // Reconcile OS records too: recovers if a process died between scheduling and recording an ID.
   const existing = await Notifications.getAllScheduledNotificationsAsync();
   const granted = isGranted(await Notifications.getPermissionsAsync());
+  const exact = await exactAlarmAccess();
   const desired = granted ? notificationPlan(state) : [];
-  // A reminder scheduled on an older channel counts as changed, so it is cancelled and scheduled again on CHANNEL.
-  const diff = reminderDiff(existing.map(n => ({ id:n.identifier, owner:n.content.data?.owner, body:n.content.data?.channel === CHANNEL ? n.content.body : null })), desired);
+  // A reminder scheduled on an older channel, or before exact alarms were allowed/revoked, counts as changed: it is
+  // cancelled and scheduled again, so every pending reminder uses the current channel and the exact alarm when allowed.
+  const diff = reminderDiff(existing.map(n => ({ id:n.identifier, owner:n.content.data?.owner, body:n.content.data?.channel === CHANNEL && n.content.data?.exact === exact ? n.content.body : null })), desired);
   for (const id of diff.cancel) await Notifications.cancelScheduledNotificationAsync(id);
   await clearNotificationRecords();
   for (const id of diff.keep) await rememberNotification(id,id);
@@ -61,7 +78,7 @@ export async function syncNotifications(state: AppState) {
   for (const reminder of diff.schedule) {
     const id = await Notifications.scheduleNotificationAsync({
       identifier: reminder.key,
-      content: { title: 'Lensim', body: reminder.body, sound: 'default', ...(reminder.kind==='daily-checkin'||reminder.kind==='package-expired'?{categoryIdentifier:reminder.kind}:{}), data: { owner: 'lens-takip', channel: CHANNEL, url: 'lenstakip:///', ...(reminder.kind?{kind:reminder.kind,packageIds:reminder.packageIds,date:dateOnly(reminder.date),eye:reminder.eye}:{}) } },
+      content: { title: 'Lensim', body: reminder.body, sound: 'default', ...(reminder.kind==='daily-checkin'||reminder.kind==='package-expired'?{categoryIdentifier:reminder.kind}:{}), data: { owner: 'lens-takip', channel: CHANNEL, exact, url: 'lenstakip:///', ...(reminder.kind?{kind:reminder.kind,packageIds:reminder.packageIds,date:dateOnly(reminder.date),eye:reminder.eye}:{}) } },
       trigger: { type: Notifications.SchedulableTriggerInputTypes.DATE, date: reminder.date, channelId: CHANNEL },
     });
     await rememberNotification(id, reminder.key);

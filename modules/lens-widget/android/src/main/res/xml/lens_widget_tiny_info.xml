@@ -1,0 +1,11 @@
+<!-- 1x1 counter widget. Android 12+ launchers use targetCell*; older ones the min sizes (1 cell = 40dp). -->
+<appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
+  android:minWidth="40dp" android:minHeight="40dp"
+  android:minResizeWidth="40dp" android:minResizeHeight="40dp"
+  android:targetCellWidth="1" android:targetCellHeight="1"
+  android:resizeMode="horizontal|vertical"
+  android:updatePeriodMillis="1800000"
+  android:initialLayout="@layout/lens_widget_tiny"
+  android:previewLayout="@layout/lens_widget_tiny"
+  android:description="@string/lens_widget_tiny_description"
+  android:widgetCategory="home_screen" />

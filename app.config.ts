@@ -13,10 +13,13 @@ const config: ExpoConfig = {
     versionCode: 1,
     allowBackup: false,
     adaptiveIcon: { foregroundImage: './assets/adaptive-icon.png', backgroundColor: '#EAF3FF' },
+    // Lets reminders fire at their set time on Android 12+ (the person allows it under "Alarmlar ve hatırlatıcılar").
+    permissions: ['android.permission.SCHEDULE_EXACT_ALARM'],
     blockedPermissions: ['android.permission.RECORD_AUDIO', 'android.permission.READ_CONTACTS', 'android.permission.READ_EXTERNAL_STORAGE', 'android.permission.WRITE_EXTERNAL_STORAGE', 'com.google.android.gms.permission.AD_ID'],
   },
   plugins: [
     'expo-router', 'expo-sqlite',
+    'expo-secure-store', 'expo-web-browser',
     ['expo-splash-screen', { image: './assets/splash.png', imageWidth: 180, backgroundColor: '#EAF3FF' }],
     ['expo-notifications', { icon: './assets/notification.png', color: '#0754C8' }],
   ],

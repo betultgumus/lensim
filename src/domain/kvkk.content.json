@@ -1,0 +1,46 @@
+[
+  {
+    "title": "Bu metin ne için?",
+    "body": "6698 sayılı Kişisel Verilerin Korunması Kanunu (KVKK) kapsamında seni bilgilendirmek içindir. Bu metni okumak veya kapatmak hiçbir şeye onay vermek anlamına gelmez. Onay gerektiren işlemler (ör. bulut yedeği) için ayrı ve önceden işaretlenmemiş bir onay sorulur."
+  },
+  {
+    "title": "Veri sorumlusu",
+    "body": "{publisher} · Adres: {address} · E-posta: {email}"
+  },
+  {
+    "title": "Hangi veriler işleniyor?",
+    "body": "Misafir kullanımda: lens kutusu ve paket bilgileri, günlük lens kullanım cevapları ve takvim geçmişi, istersen girdiğin lens/gözlük numaraları, göz günlüğü notları ve uygulama ayarları. Bunlar yalnızca cihazında işlenir. Hesap açarsan ayrıca: e-posta adresi, parolanın şifrelenmiş hâli, Google ile girişte Google’ın paylaştığı temel profil bilgileri ve hesap hizmetinin tuttuğu teknik oturum kayıtları (giriş zamanı, IP adresi). Lens kullanım geçmişi ve göz numaraları sağlıkla ilişkili veri niteliği taşıyabilir."
+  },
+  {
+    "title": "Hangi amaçlarla?",
+    "body": "Lens kullanımını kaydetmen, değişim zamanını görmen ve kişisel hatırlatmalar kurman; hesap açarsan kimliğini doğrulamak; bulut yedeğini açarsan kayıtlarını yedeklemek ve cihazların arasında eşitlemek. Veriler reklam, profilleme veya analiz amacıyla işlenmez."
+  },
+  {
+    "title": "Nerede saklanıyor?",
+    "body": "Misafir kayıtları yalnızca cihazında saklanır. Hesap bilgileri hesap hizmeti sağlayıcısında (Supabase) saklanır. Bulut yedeğini açarsan kayıtlarının kopyası da aynı sağlayıcının veritabanında, hesabına bağlı olarak tutulur. Sunucu bölgesi: {region}."
+  },
+  {
+    "title": "Kimlerle paylaşılıyor?",
+    "body": "Veriler satılmaz ve reklam şirketlerine aktarılmaz. Hesap ve bulut yedeği için hizmet sağlayıcı Supabase, Google ile girişi seçersen kimlik doğrulama için Google veri işleyen olarak devreye girer. Yasal bir zorunluluk olursa yetkili kurumlarla paylaşılabilir."
+  },
+  {
+    "title": "Hukuki sebep",
+    "body": "Hesap ve kimlik doğrulama: {basisAccount}. Bulut yedeği ve eşitleme (sağlıkla ilişkili veriler dahil): {basisCloud}. Misafir kullanımda veriler yalnızca senin cihazında, senin kontrolünde işlenir."
+  },
+  {
+    "title": "Toplama yöntemi",
+    "body": "Veriler uygulamaya kendi girdiğin bilgilerden ve hesap açarken kullandığın giriş yönteminden elektronik olarak toplanır."
+  },
+  {
+    "title": "Ne kadar süre saklanıyor?",
+    "body": "Cihazdaki kayıtlar sen silene kadar. Buluttaki yedek ve arşiv kopyaları, bulut yedeğini kapatıp kopyayı silene veya hesabını silene kadar. Hesap bilgileri hesabını silene kadar. {retention}"
+  },
+  {
+    "title": "Hakların",
+    "body": "KVKK’nın 11. maddesi uyarınca kişisel verilerinin işlenip işlenmediğini öğrenme, bilgi isteme, işlenme amacını öğrenme, aktarıldığı üçüncü kişileri bilme, eksik veya yanlış işlenmişse düzeltilmesini, silinmesini veya yok edilmesini isteme, bu işlemlerin aktarılan kişilere bildirilmesini isteme, otomatik analiz sonucu aleyhine bir sonuca itiraz etme ve kanuna aykırı işleme nedeniyle zararın giderilmesini talep etme hakların vardır."
+  },
+  {
+    "title": "Taleplerini nereye iletebilirsin?",
+    "body": "Taleplerini {email} adresine veya {address} adresine yazılı olarak iletebilirsin. Uygulamadaki silme işlemlerini (Cihazımdaki tüm verileri sil, Buluttaki kopyayı sil, Hesabımı sil) dilediğin zaman kendin de kullanabilirsin."
+  }
+]

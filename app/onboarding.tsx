@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Platform, Switch, View } from 'react-native';
 import { router, Redirect } from 'expo-router';
-import { Button, Copy, Field, Screen, SegmentedControl, useColors } from '../src/components/ui';
+import { Button, Copy, Field, Screen, SegmentedControl, useColors, switchColors, switchThumb } from '../src/components/ui';
 import { useApp, uid } from '../src/state/AppContext';
 import type { Eye, LensBox } from '../src/domain/types';
 import { addDays, formatDate, isWithinEntryWindow } from '../src/domain/dates';
@@ -20,7 +20,7 @@ function ReminderRow({ title, detail, value, onChange }: { title: string; detail
   const t = useColors();
   return <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 52 }}>
     <View style={{ flex: 1, gap: 2 }}><Copy bold size={15} style={{ lineHeight: 20 }}>{title}</Copy><Copy size={14} muted style={{ lineHeight: 19 }}>{detail}</Copy></View>
-    <Switch accessibilityLabel={title} value={value} onValueChange={onChange} trackColor={{ false: t.border, true: t.accent }}/>
+    <Switch accessibilityLabel={title} value={value} onValueChange={onChange} {...switchColors} thumbColor={switchThumb(value)}/>
   </View>;
 }
 
@@ -31,7 +31,7 @@ export default function Onboarding(){
  const [name,setName]=useState('');const [nameError,setNameError]=useState<string|null>(null);const [brand,setBrand]=useState('');const [count,setCount]=useState('6');
  const [type,setType]=useState<LensBox['lensType']>('spherical');const [date,setDate]=useState(today);
  const [values,setValues]=useState<Record<string,string>>({});const [wantsNumbers,setWantsNumbers]=useState(false);const [separateNumbers,setSeparateNumbers]=useState(false);
- const [dailyReminder,setDailyReminder]=useState(true);const [dailyTime,setDailyTime]=useState<string|null>(state.settings.notificationTime);const [timeError,setTimeError]=useState(false);const [nightReminder,setNightReminder]=useState(false);
+ const [dailyReminder,setDailyReminder]=useState(false);const [dailyTime,setDailyTime]=useState<string|null>(state.settings.notificationTime);const [timeError,setTimeError]=useState(false);const [nightReminder,setNightReminder]=useState(false);
  const [busy,setBusy]=useState(false);
  if(state.onboarded&&state.packages.length)return <Redirect href="/(tabs)"/>;
  const keys=numberKeys(type);
@@ -60,7 +60,7 @@ export default function Onboarding(){
   router.replace(date<today?{pathname:'/(tabs)',params:{mark:date}}:'/(tabs)');
  }finally{setBusy(false);}};
  return <Screen title="Lensim" subtitle="İlk lens paketini ekle. Hesap gerekmez.">
-  <View style={{padding:16,borderLeftWidth:4,borderLeftColor:t.accent,backgroundColor:t.soft,borderRadius:12,gap:6}}><Copy bold>{Platform.OS==='web'?'Verilerin yalnızca bu tarayıcıda saklanır.':'Verilerin yalnızca bu telefonda saklanır.'}</Copy><Copy muted>Hesap, giriş veya internet bağlantısı gerekmez; kayıtların hiçbir sunucuya gönderilmez. {Platform.OS==='web'?'Tarayıcı verisini silersen kayıtlar da silinir;':'Telefon değiştirirken'} Ayarlar → Veri yedeği bölümünden .json yedek dosyası alabilirsin.</Copy></View>
+  <View style={{padding:16,borderLeftWidth:4,borderLeftColor:t.accent,backgroundColor:t.soft,borderRadius:12,gap:6}}><Copy bold>{Platform.OS==='web'?'Verilerin yalnızca bu tarayıcıda saklanır.':'Verilerin yalnızca bu telefonda saklanır.'}</Copy><Copy muted>Lensim lens paketlerini, değişim zamanını ve günlük “taktım / takmadım” kayıtlarını tutar ve istersen hatırlatma kurar. Hesap, giriş veya internet bağlantısı gerekmez; kayıtların hiçbir sunucuya gönderilmez. Hesap ve bulut yedeği isteğe bağlıdır ve yalnızca sen ayrıca onaylarsan açılır.</Copy><Copy muted size={14}>{Platform.OS==='web'?'Tarayıcı verisini silersen kayıtlar da silinir.':'Telefon değiştirirsen veya uygulamayı silersen kayıtlar kendiliğinden geri gelmez;'} Ayarlar → Veri yedeği’nden .json yedek dosyası alabilir, Ayarlar → Gizlilik ve veriler’den bütün kayıtlarını silebilirsin. Lensim tıbbi cihaz değildir; lens kullanımıyla ilgili kararlar için göz hekimine danış.</Copy></View>
   <SegmentedControl label="Göz" selected={eye} onChange={v=>chooseEye(v as 'both'|Eye)} options={[{value:'both',title:'İkisi'},{value:'right',title:'Sağ'},{value:'left',title:'Sol'}]}/>
   <Copy bold>Kullanım süresi</Copy>
   <DurationPicker days={duration} custom={custom} onChange={(d,c)=>{setDuration(d);setCustom(c);}}/>
@@ -87,8 +87,9 @@ export default function Onboarding(){
    </>}
   </Section>
   <Section>
-   <View style={{gap:2}}><Copy bold>Hatırlatmalar</Copy><Copy muted size={14}>İkisi ayrı çalışır. Saatleri sonra Ayarlar → Hatırlatmalar’dan değiştirebilirsin.</Copy></View>
-   <ReminderRow title="“Bugün lens taktın mı?”" detail={dailyReminder?`Her gün saat ${dailyTime??'…'}’de sorar. Paket değişim uyarıları da bu saatte gelir.`:'Kapalı. Açarsan hangi saatte soracağını seçebilirsin.'} value={dailyReminder} onChange={setDailyReminder}/>
+   <View style={{gap:2}}><Copy bold>Hatırlatmalar</Copy><Copy muted size={14}>Günlük soru, takvim kaydını hatırlatır; lens değişim uyarıları da seçtiğin saatte gelir. İzin isteği yalnızca hatırlatıcı kurmayı seçersen çıkar. Sonra Ayarlar’dan değiştirebilirsin.</Copy></View>
+   <View style={{flexDirection:'row',gap:8}}><View style={{flex:1}}><Button title="Hatırlatıcıları ayarla" secondary outlined onPress={()=>setDailyReminder(true)}/></View><View style={{flex:1}}><Button title="Şimdi değil" secondary onPress={()=>setDailyReminder(false)}/></View></View>
+   {dailyReminder&&<Copy size={14} muted>Her gün “Bugün lens taktın mı?” diye sorar. Paket değişim uyarıları da seçtiğin saatte gelir.</Copy>}
    {dailyReminder&&<TimePicker label="Günlük soru saati" value={dailyTime??''} presets={['08:00','12:00','18:00','20:00','21:00','22:00']} onChange={time=>{setDailyTime(time);if(time)setTimeError(false);}}/>}
    <View style={{height:1,backgroundColor:t.border}}/>
    <ReminderRow title="“Lenslerini çıkardın mı?”" detail={`Lensle uyumamak için her gece saat ${state.settings.nightReminderTime}’te hatırlatır.`} value={nightReminder} onChange={setNightReminder}/>

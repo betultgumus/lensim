@@ -29,9 +29,11 @@ test('box name is required and explained next to the field', async () => {
   expect(save.mock.calls.some(([state])=>state.onboarded)).toBe(false);
 });
 
-test('first package saves locally and requests reminders after setup', async () => {
+test('first package saves locally and requests reminders only after the user opts in', async () => {
   await show(<Onboarding/>);
   await fireEvent.changeText(await screen.findByLabelText('Kutu adı, zorunlu'),'1.5 numara mavi kap');
+  expect(requestNotifications).not.toHaveBeenCalled();
+  await fireEvent.press(screen.getByText('Hatırlatıcıları ayarla'));
   await fireEvent.press(await screen.findByText('İlk paketi kaydet'));
   await waitFor(()=>expect(save.mock.calls.some(([state])=>state.onboarded)).toBe(true));
   const saved=save.mock.calls.at(-1)![0];
@@ -42,8 +44,9 @@ test('first package saves locally and requests reminders after setup', async () 
 test('daily question time can be chosen during setup and is saved to the same setting', async () => {
   await show(<Onboarding/>);
   await fireEvent.changeText(await screen.findByLabelText('Kutu adı, zorunlu'),'1.5 numara mavi kap');
+  await fireEvent.press(screen.getByText('Hatırlatıcıları ayarla'));
   await fireEvent.changeText(screen.getByLabelText('Günlük soru saati'),'20.30');
-  expect(await screen.findByText(/Her gün saat 20:30’de sorar/)).toBeTruthy();
+  expect(await screen.findByText(/Bildirim her gün saat 20:30’de gelir/)).toBeTruthy();
   await fireEvent.press(screen.getByText('İlk paketi kaydet'));
   await waitFor(()=>expect(save.mock.calls.some(([state])=>state.onboarded)).toBe(true));
   const saved=save.mock.calls.at(-1)![0];

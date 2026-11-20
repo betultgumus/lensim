@@ -1,0 +1,15 @@
+<resources>
+  <string name="lens_widget_label">Lensim</string>
+  <string name="lens_widget_tiny_label">Lensim sayaç</string>
+  <string name="lens_widget_action_label">Lensim günlük takip</string>
+  <string name="lens_widget_description">Lens kullanım günün ve değişime kalan süre bir bakışta.</string>
+  <string name="lens_widget_tiny_description">Yalnızca lens günü sayacı; rengi lens durumunu gösterir.</string>
+  <string name="lens_widget_action_description">Lens sayacını ve günlük Taktım / Takmadım düğmelerini gösterir. Düğmeler uygulamayı açmadan kaydeder.</string>
+  <string name="lens_widget_open_app">Lensim’i aç</string>
+  <string name="lens_widget_open_hint">Sayaç için dokun</string>
+  <string name="lens_widget_wore">Taktım</string>
+  <string name="lens_widget_did_not_wear">Takmadım</string>
+  <string name="lens_widget_today_wore">Bugün: Taktım</string>
+  <string name="lens_widget_today_did_not_wear">Bugün: Takmadım</string>
+  <string name="lens_widget_today_glasses">Bugün: Gözlük</string>
+</resources>

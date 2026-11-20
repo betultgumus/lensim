@@ -7,6 +7,7 @@ import {useApp,showError} from '../../src/state/AppContext';
 import {shortDate} from '../../src/domain/dates';
 import {palette} from '../../src/design/dayTone';
 import {NotificationsPrompt,ReminderSummary,useNotificationAccess} from '../../src/components/ReminderSettings';
+import {useAuth} from '../../src/state/AuthContext';
 
 /** Screen-local sizes: cards share one radius and a tighter padding; a section is title + secondary line, then its control. */
 const card={borderRadius:14,padding:14,gap:10} as const;
@@ -50,7 +51,7 @@ function DefaultChoice({value,days,current,onChoose,onCancel}:{value:'worn'|'not
   </Sheet>;
 }
 
-export default function Settings(){const {state,dispatch}=useApp();const notifications=useNotificationAccess();
+export default function Settings(){const {state,dispatch}=useApp();const auth=useAuth();const notifications=useNotificationAccess();
  type Answer='worn'|'notWorn';
  // Days filled automatically that would change with the new default. "Taktım" needs an open package on that day,
  // the same rule the save uses. Days the person answered themselves are never in this list.
@@ -68,10 +69,10 @@ export default function Settings(){const {state,dispatch}=useApp();const notific
  <View style={{gap:4}}><Copy bold size={26} style={{lineHeight:32}}>Ayarlar</Copy><Copy muted size={14} style={{lineHeight:20}}>Takip şeklini ve yedeklerini yönet.</Copy></View>
  <NotificationsPrompt notifications={notifications}/>
  <ReminderSummary notifications={notifications} onEdit={()=>router.push('/settings/notifications')}/>
- <Card style={card}><SectionHead title="Bir günü cevapsız bırakırsan" detail="Ertesi gün 02.00’de otomatik tamamlanır."/><SegmentedControl label="Cevapsız gün varsayılanı" selected={state.settings.defaultAnswer} onChange={value=>changeDefault(value as 'worn'|'notWorn')} options={[{value:'worn',title:'Taktım say'},{value:'notWorn',title:'Takmadım say',selectedColor:palette.notWornSelected}]}/>{autoTotal>0&&<Copy size={13} muted style={{lineHeight:18}}>Şu an {autoTotal} gün otomatik dolu. Varsayılanı değiştirirken bu günlerin de güncellenip güncellenmeyeceğini sen seçersin; kendi seçtiğin günler hiç değişmez.</Copy>}</Card>
+ <Card style={card}><SectionHead title="Bir günü cevapsız bırakırsan" detail="Ertesi gün 02.00’de otomatik tamamlanır."/><SegmentedControl label="Cevapsız gün varsayılanı" selected={state.settings.defaultAnswer} onChange={value=>changeDefault(value as 'worn'|'notWorn')} options={[{value:'worn',title:'Taktım say'},{value:'notWorn',title:'Takmadım say'}]}/>{autoTotal>0&&<Copy size={13} muted style={{lineHeight:18}}>Şu an {autoTotal} gün otomatik dolu. Varsayılanı değiştirirken bu günlerin de güncellenip güncellenmeyeceğini sen seçersin; kendi seçtiğin günler hiç değişmez.</Copy>}</Card>
  <DefaultChoice value={pending} days={pending?changingDays(pending):[]} current={state.settings.defaultAnswer} onChoose={(past)=>save(pending!,past)} onCancel={()=>setPending(null)}/>
  <Card style={card}><SectionHead title="Takvim görünümü" detail="Sağ ve sol paketlerin açılışını ayrı işaretle."/><SegmentedControl label="Göz takvimi görünümü" selected={state.settings.separateEyeCalendars?'separate':'combined'} onChange={value=>dispatch({type:'settings',patch:{separateEyeCalendars:value==='separate'}})} options={[{value:'combined',title:'Birleşik'},{value:'separate',title:'Sağ · Sol ayrı'}]}/></Card>
- <Card style={listCard}><NavRow title="Göz numaralarım" detail="Lens ve gözlük reçeteleri" icon="glasses-outline" onPress={()=>router.push('/prescriptions')}/><NavRow title="Lens kutularım" detail="Adet, kutu adı ve süre" icon="albums-outline" onPress={()=>router.push('/settings/boxes')}/><NavRow title="Veri yedeği" detail="Yedek kaydet ve geri yükle" icon="save-outline" onPress={()=>router.push('/settings/backup')}/></Card>
- <Copy size={13} muted style={{lineHeight:18}}>Lensim · Çevrimdışı kullanım desteklenir. Lens süresini kutu talimatına ve göz uzmanının önerisine göre belirle.</Copy>
- <Card style={listCard}><NavRow title="Gizlilik ve veriler" detail="Veri kullanımı ve silme" icon="shield-checkmark-outline" onPress={()=>router.push('/settings/privacy')}/></Card>
+ <Card style={listCard}><NavRow title="Hesap yönetimi" detail={auth.session?(auth.syncing?'Veriler eşitleniyor':auth.cloudBackup?'Bulut yedeği açık · oturum · hesabı sil':'Bulut yedeği kapalı · oturum · hesabı sil'):'İsteğe bağlı · misafir kullanımı sürer'} icon="person-circle-outline" onPress={()=>router.push('/account')}/><NavRow title="Yardım ve lens güvenliği" detail="Sık sorular ve güvenilir kaynaklar" icon="help-circle-outline" onPress={()=>router.push('/help')}/><NavRow title="Göz numaralarım" detail="Lens ve gözlük reçeteleri" icon="glasses-outline" onPress={()=>router.push('/prescriptions')}/><NavRow title="Lens kutularım" detail="Her kutu ayrı kaydedilir" icon="albums-outline" onPress={()=>router.push('/settings/boxes')}/><NavRow title="Veri yedeği" detail="Dosyaya yedekle ve geri yükle" icon="save-outline" onPress={()=>router.push('/settings/backup')}/></Card>
+ <Copy size={13} muted style={{lineHeight:18}}>Lens süresini kutu talimatına ve göz hekiminin önerisine göre belirle.</Copy>
+ <Card style={listCard}><NavRow title="Gizlilik ve veriler" detail="Verilerim · politika · KVKK · silme" icon="shield-checkmark-outline" onPress={()=>router.push('/settings/privacy')}/><NavRow title="Hakkında" detail="Tıbbi cihaz değildir · sürüm · destek" icon="information-circle-outline" onPress={()=>router.push('/about')}/></Card>
  </Screen>}

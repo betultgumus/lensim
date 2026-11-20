@@ -1,0 +1,10 @@
+<appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
+  android:minWidth="110dp" android:minHeight="180dp"
+  android:minResizeWidth="110dp" android:minResizeHeight="180dp"
+  android:targetCellWidth="2" android:targetCellHeight="3"
+  android:resizeMode="horizontal|vertical"
+  android:updatePeriodMillis="1800000"
+  android:initialLayout="@layout/lens_widget_action"
+  android:previewLayout="@layout/lens_widget_action"
+  android:description="@string/lens_widget_action_description"
+  android:widgetCategory="home_screen" />

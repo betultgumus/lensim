@@ -5,3 +5,5 @@ export async function notificationAccess(): Promise<NotificationAccess> { return
 export async function openNotificationSettings() {}
 export async function requestNotifications(): Promise<boolean> { return false; }
 export async function syncNotifications(_state: AppState): Promise<void> {}
+export async function exactAlarmAccess(): Promise<boolean> { return true; }
+export async function requestExactAlarms(): Promise<boolean> { return true; }

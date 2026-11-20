@@ -1,26 +1,46 @@
 [
   {
-    "title": "Hangi bilgiler saklanır?",
-    "body": "Lens kutuların, paket açılış tarihleri, günlük “taktım / takmadım / gözlük” cevapların, kutudaki lens sayısı, istersen girdiğin lens ve gözlük numaraları ve hatırlatıcı tercihlerin cihazında saklanır."
+    "title": "Kapsam ve yayıncı",
+    "body": "Bu politika Lensim mobil uygulamasını ve web önizlemesini kapsar. Yayıncı: {publisher}. İletişim: {email}."
   },
   {
-    "title": "Veriler gönderilir mi?",
-    "body": "Lensim hesap oluşturmaz; geliştiriciye veya bir sunucuya lens bilgilerini, sağlık notlarını ya da cihaz tanımlayıcılarını göndermez. Reklam, analitik, uzaktan push bildirimi veya uygulama içi satın alma altyapısı kullanılmaz. Bir destek bağlantısını açarsan tarayıcı veya e-posta hizmetinin kendi gizlilik koşulları geçerli olur."
+    "title": "Hangi bilgiler saklanır?",
+    "body": "Lens kutuların, paket açılış/kapanış tarihleri, günlük “Taktım / Takmadım / Gözlük” cevapların, kutudaki lens sayısı, istersen girdiğin lens ve gözlük numaraları, göz günlüğü notların ve uygulama ayarların (ör. hatırlatma saatleri). Lens kullanım geçmişi ve göz numaraları sağlıkla ilişkili bilgi sayılabilir."
+  },
+  {
+    "title": "Misafir kullanım: veriler cihazında",
+    "body": "Hesap açmadan kullanırsan bütün kayıtların yalnızca cihazındaki uygulama alanında (telefonda SQLite veritabanında, web önizlemesinde tarayıcı deposunda) saklanır ve hiçbir sunucuya gönderilmez. Android uygulama yedeklemesi kapalıdır. Telefon değiştirdiğinde veya uygulamayı sildiğinde misafir kayıtları kendiliğinden geri gelmez; Ayarlar → Veri yedeği bölümünden kendi .json yedek dosyanı alabilirsin. iPhone’da iCloud cihaz yedeği açıksa iOS uygulama verilerini kendi yedeğine dahil edebilir; bu Lensim’in gönderdiği bir yedek değildir."
+  },
+  {
+    "title": "İsteğe bağlı hesap",
+    "body": "Hesap açmak zorunlu değildir. Hesap açarsan e-posta adresin ve parolanın şifrelenmiş (özetlenmiş) hâli hesap hizmeti sağlayıcısı Supabase’de saklanır; Lensim parolanı göremez. Google ile girişte Google’ın paylaştığı e-posta, ad ve profil fotoğrafı bağlantısı gibi temel profil bilgileri de hesapla birlikte saklanır. Hesap hizmeti, güvenlik amacıyla giriş zamanı ve IP adresi gibi teknik oturum kayıtları tutar. Sunucu bölgesi: {region}."
+  },
+  {
+    "title": "Bulut yedeği yalnızca onayınla",
+    "body": "Hesap açmak kayıtlarını buluta göndermez. Bulut yedeği, giriş yaptıktan sonra neyin gönderileceğini görüp ayrıca onay verdiğinde başlar. Açıkken yukarıdaki kayıtların tamamının bir kopyası hesabına bağlı bulut veritabanında tutulur ve değişiklikler eşitlenir; iki cihazın kayıtları birleştirildiğinde önceki bulut kopyası güvenlik için arşivlenir. Bulut yedeğini istediğin zaman kapatabilir ve buluttaki kopyayı (arşivler dahil) silebilirsin."
+  },
+  {
+    "title": "Üçüncü taraflar ve paylaşım",
+    "body": "Lensim’de reklam, reklam kimliği, analiz (analytics), çökme raporlama, uzaktan push bildirimi veya uygulama içi satın alma altyapısı yoktur. Kayıtların satılmaz ve reklam amacıyla kullanılmaz. Araştırma paylaşımı tercihi şimdilik yalnızca bu cihazda saklanır; Lensim henüz kullanım verisi toplamıyor veya araştırma amacıyla paylaşmıyor. Yalnızca hesap ve bulut yedeği için Supabase (barındırma ve veritabanı), Google ile girişi seçersen Google kullanılır. Yardım ekranındaki bağlantıları açarsan tarayıcının ve ilgili sitenin kendi koşulları geçerlidir."
   },
   {
     "title": "Bildirimler",
-    "body": "Hatırlatmalar yalnızca izninle cihaz tarafından planlanır. Bildirim metninde lens numaraların yer almaz. Bildirim içeriği ekranına bakabilen kişilerce görülebilir."
-  },
-  {
-    "title": "Saklama, güvenlik ve silme",
-    "body": "Veriler uygulamanın cihaz üzerindeki özel alanında saklanır. Lensim’in sunucusu veya otomatik bulut yedeği yoktur; Android uygulama yedeklemesi kapalıdır. iPhone’da iCloud cihaz yedeği açıksa iOS, uygulama verilerini kendi cihaz yedeğine dahil edebilir; bu Lensim’in gönderdiği bir yedek değildir. Web önizlemesinde kayıtlar yalnızca o tarayıcıda saklanır. Telefon değiştirmeden veya uygulamayı kaldırmadan önce Ayarlar → Veri yedeği bölümünden yedek dosyası al. Yedek dosyası göz numaralarını da içerir; onu güvenli bir yerde sakla. Bütün kayıtlarını bu ekrandaki silme işlemiyle kaldırabilirsin."
+    "body": "Hatırlatmalar yalnızca izninle, cihazının kendi zamanlayıcısıyla planlanır; bir sunucudan gönderilmez. Bildirim metninde lens numaraların yer almaz. Bildirim içeriği ekranına bakabilen kişilerce görülebilir."
   },
   {
     "title": "İzinler",
-    "body": "Yalnızca yerel bildirim izni istenir. Kamera, mikrofon, konum, kişiler ve reklam kimliği erişimi gerekmez. Bildirim iznini reddetmen veya geri alman lens takibini engellemez."
+    "body": "Bildirim izni yalnızca bir hatırlatmayı açtığında istenir. Android’de hatırlatmaların seçtiğin saatte gelmesi için “Alarmlar ve hatırlatıcılar” izni isteğe bağlı olarak sorulur. Hesap kullanırsan internet bağlantısı kullanılır. Kamera, mikrofon, konum, kişiler, SMS, arama kayıtları ve reklam kimliği erişimi yoktur. İzinleri reddetmen lens takibini engellemez."
+  },
+  {
+    "title": "Saklama ve silme",
+    "body": "Cihazdaki kayıtlar sen silene kadar cihazında kalır: Ayarlar → Gizlilik ve veriler → Cihazımdaki tüm verileri sil. Buluttaki kopya, bulut yedeğini kapatıp “Buluttaki kopyayı sil” dediğinde veya hesabını sildiğinde silinir. Hesabını Ayarlar → Hesap yönetimi → Hesabımı sil yoluyla kalıcı olarak silebilirsin; hesap, bulut yedeği, arşiv kopyaları ve oturum kayıtları silinir. Uygulama dışından silme talebi: {deletionUrl}. {retention}"
+  },
+  {
+    "title": "Haklar ve iletişim",
+    "body": "Verilerine erişme, düzeltme, silme ve diğer yasal hakların için {email} adresine yazabilirsin. Ayrıntılar için uygulamadaki KVKK aydınlatma metnine bak."
   },
   {
     "title": "Tıbbi açıklama",
-    "body": "Lensim bir tıbbi cihaz değildir; herhangi bir hastalığı teşhis etmez, tedavi etmez, iyileştirmez veya önlemez. Lens kullanım süresini ürün talimatına ve göz sağlığı uzmanının önerisine göre belirle. Tıbbi tavsiye, tanı veya tedavi için bir sağlık uzmanına danış."
+    "body": "Lensim bir tıbbi cihaz değildir. Herhangi bir sağlık durumunu teşhis etmez, tedavi etmez, iyileştirmez veya önlemez. Uygulama, kontakt lens kullanımını kaydetmek ve kişisel hatırlatmalar oluşturmak amacıyla tasarlanmıştır. Uygulamadaki bilgiler tıbbi tavsiye, teşhis veya tedavinin yerine geçmez. Göz sağlığınız ve kontakt lens kullanımıyla ilgili kararlar için göz hekiminize danışınız."
   }
 ]

@@ -1,6 +1,12 @@
 {
   "publisherName": "",
+  "publisherAddress": "",
   "supportEmail": "",
   "privacyUrl": "",
-  "supportUrl": ""
+  "supportUrl": "",
+  "accountDeletionUrl": "",
+  "cloudRegion": "",
+  "kvkkLegalBasisCloud": "",
+  "kvkkLegalBasisAccount": "",
+  "retentionNote": ""
 }

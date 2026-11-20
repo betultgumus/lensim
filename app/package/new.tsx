@@ -25,7 +25,7 @@ function SlotForm({slot,onChange,title}:{slot:Slot;onChange:(next:Slot)=>void;ti
  const {state}=useApp();const t=useColors();
  // One box for both eyes lists the boxes made for both. A per-eye slot lists every saved box, so the right and left
  // slots offer the same choices; choosing a box for an eye it was not made for lets it serve that eye too.
- const available=slot.eyes.length===2?state.boxes.filter(b=>slot.eyes.every(e=>b.eyes.includes(e))):state.boxes;
+ const available=state.boxes.filter(b=>slot.eyes.every(e=>b.eyes.includes(e)));
  const set=(patch:Partial<Slot>)=>onChange({...slot,...patch});
  const twoEyes=slot.eyes.length===2;
  return <View style={{gap:12}}>
@@ -66,22 +66,27 @@ export default function NewPackage(){
  const firstFor=(eyes:Eye[])=>{const matching=state.boxes.filter(b=>eyes.every(e=>b.eyes.includes(e)));return matching.find(b=>b.lensesRemaining>=eyes.length)?.id??(matching.length?'':'new');};
  /** Per-eye slots start from the same box list; the first box that still has a lens (made for this eye first). */
  const firstForEye=(eye:Eye)=>{const usable=state.boxes.filter(b=>b.lensesRemaining>=1);return (usable.find(b=>b.eyes.includes(eye))??usable[0])?.id??(state.boxes.length?'':'new');};
- // Both eyes by default. Coming from one eye's package ("Bu paketi bitir" or a reminder) opens that eye only.
- const eye:'both'|Eye=params.eye==='right'||params.eye==='left'?params.eye:'both';
+ // Both eyes by default. The person can switch to one eye and replace only that eye's active package.
+ const [eye,setEye]=useState<'both'|Eye>(()=>params.eye==='right'||params.eye==='left'?params.eye:'both');
+ const [tracking,setTracking]=useState<'box'|'unboxed'>('box');
  const [separateBoxes,setSeparateBoxes]=useState(false);
- const [shared,setShared]=useState<Slot>(()=>emptySlot(params.eye?[params.eye]:['right','left'],firstFor(params.eye?[params.eye]:['right','left'])));
+ const [shared,setShared]=useState<Slot>(()=>emptySlot(['right','left'],firstFor(['right','left'])));
  const [rightSlot,setRightSlot]=useState<Slot>(()=>emptySlot(['right'],firstForEye('right')));
  const [leftSlot,setLeftSlot]=useState<Slot>(()=>emptySlot(['left'],firstForEye('left')));
  const [days,setDays]=useState('30');const [custom,setCustom]=useState(false);const [opened,setOpened]=useState(today);
- const slots:Slot[]=eye==='both'&&separateBoxes?[rightSlot,leftSlot]:[shared];
- const needsDuration=slots.some(s=>s.boxId==='new');
+ const slots:Slot[]=eye==='both'?(separateBoxes?[rightSlot,leftSlot]:[shared]):[eye==='right'?rightSlot:leftSlot];
+ const needsDuration=tracking==='unboxed'||slots.some(s=>s.boxId==='new');
  const existingDurations=slots.filter(s=>s.boxId!=='new').map(s=>state.boxes.find(b=>b.id===s.boxId)?.durationDays).filter((d):d is number=>!!d);
  const save=async()=>{
-  const unnamed=slots.filter(s=>s.boxId==='new'&&!s.name.trim());
-  if(unnamed.length){for(const slot of unnamed){const update={...slot,nameError:NAME_MISSING};if(slot===rightSlot)setRightSlot(update);else if(slot===leftSlot)setLeftSlot(update);else setShared(update);}return;}
   if(!isWithinEntryWindow(opened,today))throw new Error(`Paket açılış tarihi ${formatDate(addDays(today,-30))} ile ${formatDate(today)} arasında olmalı.`);
   const dayCount=Number(days);if(needsDuration&&(!Number.isInteger(dayCount)||dayCount<1||dayCount>365))throw new Error('Kullanım süresini 1–365 gün arasında gir.');
   const eyes:Eye[]=eye==='both'?['right','left']:[eye];
+  if(tracking==='unboxed'){
+   await dispatch({type:'openPackages',ids:eyes.map(()=>uid()),eyes,date:opened,durationDays:dayCount,unboxed:true,...(eyes.length===2?{pairId:uid()}:{})});
+   router.replace(opened<today?{pathname:'/(tabs)',params:{mark:opened}}:'/(tabs)');return;
+  }
+  const unnamed=slots.filter(s=>s.boxId==='new'&&!s.name.trim());
+  if(unnamed.length){for(const slot of unnamed){const update={...slot,nameError:NAME_MISSING};if(slot===rightSlot)setRightSlot(update);else if(slot===leftSlot)setLeftSlot(update);else setShared(update);}return;}
   const sourceFor=new Map<Eye,PackageSource>();
   for(const slot of slots){
    let source:PackageSource;
@@ -101,15 +106,19 @@ export default function NewPackage(){
   await dispatch({type:'openPackages',ids:eyes.map(()=>uid()),boxes:eyes.map(e=>sourceFor.get(e)!),eyes,date:opened,...(needsDuration?{durationDays:dayCount}:{}),...(eyes.length===2?{pairId:uid()}:{})});
   router.replace(opened<today?{pathname:'/(tabs)',params:{mark:opened}}:'/(tabs)');
  };
- return <Screen title="Yeni paket" subtitle="Lens kutunu açtığın gün sayaç başlar." back>
-  {eye!=='both'&&<Copy bold>{eyeName(eye)} göz için yeni paket</Copy>}
-  {eye==='both'&&<><Copy bold>Kutu</Copy><SegmentedControl label="Kutu seçimi" selected={separateBoxes?'separate':'shared'} onChange={v=>setSeparateBoxes(v==='separate')} options={[{value:'shared',title:'Tek kutu'},{value:'separate',title:'Her göze ayrı'}]}/></>}
-  {eye==='both'&&separateBoxes?<><SlotForm title="Sağ göz kutusu" slot={rightSlot} onChange={setRightSlot}/><SlotForm title="Sol göz kutusu" slot={leftSlot} onChange={setLeftSlot}/></>:<SlotForm title={eye==='both'?undefined:'Kutu'} slot={shared} onChange={setShared}/>}
+ return <Screen title="Yeni paket" subtitle={tracking==='unboxed'?'Kullanım süresini seç, takibi başlat.':'Lens kutunu açtığın gün sayaç başlar.'} back>
+  <Copy bold>Yeni paket hangi göz için?</Copy>
+  <SegmentedControl label="Yeni paket açılacak gözler" selected={eye} onChange={value=>setEye(value as 'both'|Eye)} options={[{value:'both',title:'İki göz'},{value:'right',title:'Sağ göz'},{value:'left',title:'Sol göz'}]}/>
+  <Copy bold>Paket takibi</Copy>
+  <SegmentedControl label="Kutu kullanımı" selected={tracking} onChange={value=>setTracking(value as 'box'|'unboxed')} options={[{value:'box',title:'Kutudan seç'},{value:'unboxed',title:'Kutusuz takip'}]}/>
+  {eye!=='both'&&state.packages.some(p=>p.eye!==(eye==='right'?'right':'left')&&!p.closedOn)&&<Copy size={14} muted>Diğer gözdeki açık paket devam eder. Bu yeni paket yalnızca {eyeName(eye).toLocaleLowerCase('tr-TR')} göz için açılır.</Copy>}
+  {tracking==='box'&&<>{eye==='both'&&<><Copy bold>Kutu düzeni</Copy><SegmentedControl label="İki göz için kutu seçimi" selected={separateBoxes?'separate':'shared'} onChange={v=>setSeparateBoxes(v==='separate')} options={[{value:'shared',title:'Aynı kutu'},{value:'separate',title:'Ayrı kutular'}]}/></>}
+  {eye==='both'&&separateBoxes?<><SlotForm title="Sağ göz kutusu" slot={rightSlot} onChange={setRightSlot}/><SlotForm title="Sol göz kutusu" slot={leftSlot} onChange={setLeftSlot}/></>:eye==='both'?<SlotForm title="İki göz için kutu" slot={shared} onChange={setShared}/>:<SlotForm title={`${eyeName(eye)} göz kutusu`} slot={eye==='right'?rightSlot:leftSlot} onChange={eye==='right'?setRightSlot:setLeftSlot}/>}</>}
   {needsDuration?<><Copy bold>Kullanım süresi</Copy><DurationPicker days={days} custom={custom} onChange={(d,c)=>{setDays(d);setCustom(c);}}/></>
    :<Copy muted>Kullanım süresi kutudan alınır: {[...new Set(existingDurations.map(durationLabel))].join(' · ')}.</Copy>}
-  <DateField label="Lens kutusunu açtığın tarih" value={opened} onChange={setOpened}/>
+  <DateField label={tracking==='unboxed'?'Paketi açtığın tarih':'Lens kutusunu açtığın tarih'} value={opened} onChange={setOpened}/>
   <Copy size={14} muted>En fazla 30 gün öncesini seçebilirsin. Eski bir tarih seçersen kayıttan sonra o günleri takvimde işaretleyebilirsin.</Copy>
   {slots.some(s=>s.boxId==='new'&&s.nameError)&&<Copy size={14} style={{color:'#A74447'}}>Kaydetmek için yukarıdaki “Kutu adı” alanını doldur.</Copy>}
-  <Button title="Kutuyu açtım · takibi başlat" icon="eye-outline" onPress={save}/>
+  <Button title={tracking==='unboxed'?'Paketi aç · takibi başlat':'Kutuyu açtım · takibi başlat'} icon="eye-outline" onPress={save}/>
  </Screen>;
 }

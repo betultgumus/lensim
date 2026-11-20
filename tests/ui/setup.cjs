@@ -9,6 +9,8 @@ jest.mock('@react-navigation/native', () => ({ useIsFocused: () => true }));
 jest.mock('expo-notifications', () => ({
   addNotificationResponseReceivedListener: jest.fn(() => ({ remove: jest.fn() })),
   getLastNotificationResponseAsync: jest.fn(async () => null),
+  clearLastNotificationResponse: jest.fn(),
+  dismissNotificationAsync: jest.fn(async () => {}),
 }));
 jest.mock('expo-router', () => ({
   router: { push: jest.fn(), replace: jest.fn(), back: jest.fn(), navigate: jest.fn(), setParams: jest.fn(), canGoBack: () => false },
@@ -17,5 +19,5 @@ jest.mock('expo-router', () => ({
   useIsFocused: () => true,
 }));
 jest.mock('../../src/services/widgets', () => ({ syncWidgets: jest.fn(async () => {}) }));
-jest.mock('../../src/services/notifications', () => ({ syncNotifications: jest.fn(async () => {}), requestNotifications: jest.fn(async () => false), notificationAccess: jest.fn(async () => 'granted'), openNotificationSettings: jest.fn(async () => {}) }));
+jest.mock('../../src/services/notifications', () => ({ syncNotifications: jest.fn(async () => {}), requestNotifications: jest.fn(async () => false), notificationAccess: jest.fn(async () => 'granted'), openNotificationSettings: jest.fn(async () => {}), exactAlarmAccess: jest.fn(async () => true), requestExactAlarms: jest.fn(async () => true) }));
 jest.mock('../../src/data/database', () => ({ loadState: jest.fn(), saveState: jest.fn(async () => {}) }));

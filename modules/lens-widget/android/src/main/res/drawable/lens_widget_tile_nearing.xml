@@ -1,0 +1,5 @@
+<!-- 1x1 counter tile, change day near: amber/orange, the same step as the app's warning state. -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
+  <corners android:radius="22dp" />
+  <gradient android:angle="315" android:startColor="#F39A1A" android:endColor="#D06A00" />
+</shape>

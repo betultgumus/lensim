@@ -24,7 +24,7 @@ EAS projesi @nihatkutukoglu/lens-takip hesabına bağlandı. Bu oturumda kaynakl
 
 ## Gizlilik beyanı hazırlığı
 
-Mevcut kaynakta hesap, analytics, reklam, bulut eşitlemesi, uzaktan push token kaydı ve ödeme yok. Lens/sağlık notları cihazda işlenir; widget’a yalnızca sayaç için gerekli özet aktarılır. Üretim ağ trafiği ve final paket bağımlılıkları da doğrulandıktan sonra Apple App Privacy / Google Data Safety cevaplarını bu davranışa göre doldur. Yeni bir SDK eklersen beyanı tekrar incele. Destek için kullanıcı tarafından gönderilen e-postaları kendi destek sürecinde değerlendir.
+Misafir kullanımında kayıtlar cihazda kalır. Hesap açan kullanıcı için Supabase Auth (Google veya e-posta/parola) ve Postgres bulut yedeği hazırlanmıştır; mağaza beyanlarında bu aktarım açıkça yer almalıdır. Araştırma paylaşımı tercihi yerel ve işlevsizdir; Lensim araştırma verisi toplamıyor/göndermiyor. Reklam SDK'sı şu an ekli değil. Widget’a yalnızca sayaç için gerekli özet aktarılır. Üretim ağ trafiği ve final paket bağımlılıkları da doğrulandıktan sonra Apple App Privacy / Google Data Safety cevaplarını son davranışa göre doldur. Yeni bir SDK eklersen beyanı tekrar incele.
 
 Google Play Health apps declaration formunu doldur. Lens/göz bakımı ve kişisel göz günlüğü işlevlerini açıkça belirt; tıbbi cihaz veya tanı iddiası seçme. Uygulamada ve açıklamada tıbbi cihaz olmadığı ve uzman danışmanlığı gerektiği belirtilmiştir. Hedef yaş ve sağlık kategorisi yanıtlarını yayıncı doğrulamalıdır.
 
@@ -41,3 +41,14 @@ Kaynaklar (13 Kasım 2026):
 Mağaza ekran görüntüleri henüz çekilmedi. Gerçek release/preview uygulamasından, kişisel veri içermeyen test kayıtlarıyla al. Tasarım maketini uygulama ekranı olarak kullanma.
 
 Önerilen sıra: ana sayaç; takvim; isteğe bağlı özellikler; görünüm/mascot; ana ekran widget’ları. iPhone ve desteklenen iPad boyutlarını App Store Connect’teki güncel yuvalara göre hazırla; Android telefon görsellerini Play Console’da doğrula. Sistem saatini, dilini, çentik alanını ve yazı taşmalarını kontrol et. Ana sayaçta günlük/bugün/gecikmiş durumları ayrıca QA için kaydet.
+
+## Google Play / KVKK · uygulama dışında yapılacaklar (20 Kasım 2026)
+
+Uygulama içi taraf hazır: isteğe bağlı hesap, ayrı onaylı bulut yedeği, Hesabımı sil, Cihazımdaki tüm verileri sil, gizlilik politikası, KVKK aydınlatma metni, Hakkında (tıbbi cihaz değildir). Şunlar dışarıda yapılmalı:
+
+1. `release.config.json` alanlarını doldur; `npm run release:check` bunlar boşken derlemeyi durdurur. `kvkkLegalBasisCloud` / `kvkkLegalBasisAccount` hukuki değerlendirmeyle yazılmalı (sağlıkla ilişkili veri, olası yurt dışı aktarım).
+2. Supabase projesini kur, iki migration’ı uygula, isteğe bağlı `delete-account` fonksiyonunu yayınla (`docs/SUPABASE_SETUP.md`). Hesap silmeyi test projesinde gerçekten dene.
+3. `npm run store:pages` → `store/web/privacy.html`, `kvkk.html`, `delete-account.html`, `support.html` dosyalarını HTTPS’te yayınla; adresleri config’e yaz. Play Console’daki “hesap silme URL’si” `delete-account.html` olmalı.
+4. Play Console: Data safety (hesap: e-posta; isteğe bağlı bulut yedeği: sağlık ve fitness/uygulama etkinliği; şifreli aktarım; silme talebi), Health apps beyanı, gizlilik politikası URL’si. Mağaza açıklamasında tıbbi açıklama metni bulunuyor (`metadata.tr-TR.json`).
+5. `SCHEDULE_EXACT_ALARM` kullanılıyor (kullanıcı ayarlı hatırlatma saatleri için, kullanıcı ayrıca izin verir). `USE_EXACT_ALARM` eklenmedi. Play’in exact alarm beyanı istenirse bu gerekçeyle doldur ya da izni kaldırıp hatırlatmaları gecikmeli kabul et.
+6. Reklam SDK’sı yok. Reklam eklenecekse: sağlık verisi/kullanım sayıları reklam SDK’sına gönderilmemeli, AD_ID engeli yeniden değerlendirilmeli, AEA/BK/İsviçre için Google sertifikalı IAB TCF CMP eklenmeli, yalnızca banner ve Taktım/Takmadım/Gözlük butonlarından uzak yerleşim kullanılmalı, geliştirmede test reklam kimlikleri kullanılmalı; bütün beyanlar güncellenmeli.

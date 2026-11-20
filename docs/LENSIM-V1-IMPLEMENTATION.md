@@ -15,22 +15,27 @@ This document records the Lensim product direction currently being applied to th
 - The UI foundation uses larger text/tap targets, 4–8 dp card corners and flat color treatment in line with the written visual rules.
 - Local reminder planning now includes active-package duration reminders and scheduled daily check-in prompts with “Taktım” / “Takmadım” actions.
 
-## Privacy requirement: no account, no cloud
+## Current account direction (2026-11-20)
 
-Lensim stores health-related data (lens use, prescriptions), so it must work without an account, sign-in or network connection. This is a product rule, not a missing feature:
+Lensim stores health-related data (lens use, prescriptions). Guest use remains complete and offline; account registration is optional. The planned account offers cloud backup and cross-device restore:
 
-- First launch opens the lens setup directly; there is no sign-up or sign-in screen.
-- Records live only on the device: SQLite (`lens-takip.db`) in the native app, IndexedDB (`lens-takip-web-preview`) in the web preview's browser.
-- Do not add Firebase, OAuth, analytics or any other service that receives lens or prescription data, and do not add account or sync infrastructure.
-- Backup is a user-started local `.json` export/restore. There is no automatic cloud backup; Android app backup is disabled (`allowBackup: false`).
+- First launch opens lens setup directly; a login screen never blocks core use.
+- Guest records remain in local SQLite (`lens-takip.db`) and web IndexedDB (`lens-takip-web-preview`).
+- Optional Google and email/password authentication uses Supabase Auth. The same local SQLite remains the native source of truth; an authenticated account stores a JSON snapshot in Postgres and restores it on another device.
+- Sign-in never uploads by itself. The user must separately enable cloud backup after reviewing the data list; until then, guest records stay on the device. When enabled, stable IDs are merged; same-day answers from the current device win, and the prior cloud snapshot is archived before replacement. Invalid or conflicting state is rejected without replacing local records.
+- The account service is disabled until `EXPO_PUBLIC_SUPABASE_URL`, `EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, the SQL migration and provider settings are configured. No production cloud project credentials are committed.
+- Backup remains a user-started local `.json` export/restore. Android OS backup is disabled (`allowBackup: false`).
 - Reminders are local notifications scheduled on the device; no push token is registered.
-- `tests/offline-privacy.test.ts` guards these rules.
+- Research sharing remains inactive. The app stores a local preference only; it sends no research data.
+- There is no advertising SDK in the current project. Guest ad placement is not implemented.
+- Account deletion uses the `delete_my_lensim_account()` Supabase SQL RPC to remove the signed-in user's cloud snapshots, archived copies and auth account. Apply the second migration and validate it in the configured Supabase project before production.
 
 ## Still required before calling v1 complete
 
 - The Android/iOS notification action flow needs acceptance on physical devices, especially after force-stop, reboot and when the app process is not running. Expo action buttons currently foreground the app so its local database can record the answer.
-- Android home-screen widget (`modules/lens-widget`, local Expo module): reads the open packages through `src/domain/widget.ts` (same pairing, day count and owl thresholds as the home screen) and shows three looks — fresh (blue), change near (lavender), overdue (pink) — plus an empty card. The app writes ~62 precomputed days on every save, day change and resume; the widget switches days at 02.00 by itself and opens `/cycle` on tap. Still to do: acceptance on physical devices and launchers (sizes, TalkBack), a widget “Taktım” action and an iOS widget.
-- New-box management, separate right/left prescriptions, full backup file-picker restore on native platforms and English strings remain follow-up work.
+- Android home-screen widgets (`modules/lens-widget`, local Expo module): the existing 2×1 and 1×1 widgets remain; a separate 2×3 widget has “Taktım” / “Takmadım” buttons. Button taps write directly to the local SQLite database without opening the app. Physical-device/launcher acceptance (button actions, database reconciliation, sizes, TalkBack) is still required; iOS widget is deferred.
+- Standalone box creation, unique box names, separate right/left prescriptions and native backup file-picker restore are implemented in the working tree; physical-device acceptance remains.
+- English strings and iOS widget are deferred until after Android Play Store work.
 - No signed APK/AAB or IPA was built in this session. Store publication and iOS are later milestones; web export is only a browser preview, not an Android app build.
 
 ## Run the local preview
