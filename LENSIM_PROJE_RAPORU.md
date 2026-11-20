@@ -11,7 +11,7 @@ Lensim, kontakt lens kullanan kişinin lens paketlerini, kullanım/değişim sü
 
 Ürün yaklaşımının ana ilkeleri:
 
-- Üyelik, giriş, sunucu ve bulut eşitlemesi olmadan çalışmak.
+- V1’de hesap olmadan, cihaz üzerinde çalışmak. Sonraki aşama için giriş ekleme kararı alındı; girişin bulut yedeği/eşitleme sağlayıp sağlamayacağı henüz belirlenmedi.
 - Sağ ve sol gözü ayrı izlemeyi desteklemek; günlük kullanım cevabını pratik biçimde iki göze birlikte kaydedebilmek.
 - Gözlükle geçirilen günü, lens takılan günden ayırmak ve takvim geçmişini düzeltilebilir tutmak.
 - Kullanıcıya süre, kalan lens stoğu ve gecikme durumunu anlaşılır biçimde göstermek.
@@ -20,12 +20,7 @@ Lensim, kontakt lens kullanan kişinin lens paketlerini, kullanım/değişim sü
 
 ## 2. Uygulama ve kaynak kodun mevcut yapısı
 
-Depoda iki ayrı, birbirine otomatik veri aktarmayan uygulama bulunuyor:
-
-1. **Expo / React Native — `lens-takip/` kökü:** Güncel Lensim v1 geliştirme notları, yeni arayüz ve özellikler bu uygulamayı tarif ediyor. Android, iOS ve web önizlemesi hedeflenmiş. Yerel uygulamada SQLite, web önizlemesinde tarayıcı IndexedDB kullanılıyor.
-2. **Flutter — `lens-takip/lensim_app/`:** Daha önceki ayrı uygulama hattı olarak korunmuş. Kendine ait SQLite veritabanı, bildirimleri, ekranları ve testleri var. Expo sürümüyle verileri paylaşmıyor.
-
-Bu yüzden proje bakımında ve mağaza hazırlığında hangi uygulamanın yayınlanacak ana sürüm olacağı açıkça seçilmeli. Mevcut v1 ve mağaza teslim dokümanları Expo hattını esas alıyor; Flutter README’sindeki 1.1/1.2 maddeleri ise eski, ayrı hattın planıdır ve güncel Expo yol haritasının tamamlanmış veya onaylanmış işleri gibi okunmamalıdır.
+Güncel ve yayın hattı olarak **Expo / React Native** seçildi. Android, iOS ve web önizlemesi hedefleniyor. Eski, ayrı Flutter uygulaması kaldırıldı; Expo uygulamasının dosyalarına ve çalışma akışına dokunulmadı. Native sürümde SQLite, web önizlemesinde tarayıcı IndexedDB kullanılıyor.
 
 ## 3. Bugüne kadar tamamlananlar
 
@@ -47,7 +42,7 @@ Bu yüzden proje bakımında ve mağaza hazırlığında hangi uygulamanın yay�
 ### 3.3 Günlük takip, takvim ve geçmiş
 
 - Ana ekranda etkin paketler gösteriliyor; iki göz aynı anda açılmışsa tek bir ortak paket olarak sunulabiliyor.
-- Tek dokunuşla günlük kullanım kaydı yaklaşımı mevcut. “Taktım / Takmadım” bildirim eylemleri planlanmış; eski Flutter uygulamasında “Gözlük” seçeneği de açıkça belgeleniyor.
+- Tek dokunuşla günlük kullanım kaydı ve “Taktım / Takmadım” bildirim eylemleri mevcut.
 - Takip günü saat 02.00’de değişiyor; ana ekran ve eksik günleri tamamlama mantığında aynı sınır kullanılıyor.
 - Kaçırılan günler varsayılan seçime göre otomatik doldurulabiliyor ve otomatik doldurma olduğu geçmişte belli oluyor.
 - Otomatik doldurulan gün takvimden elle düzeltilebiliyor.
@@ -57,7 +52,7 @@ Bu yüzden proje bakımında ve mağaza hazırlığında hangi uygulamanın yay�
 ### 3.4 Veri saklama, gizlilik ve yedek
 
 - Expo native uygulamasında SQLite, web önizlemesinde IndexedDB kullanımı belgelenmiş.
-- Hesap, Firebase/OAuth, analitik, reklam, bulut yedekleme/eşitleme ve uzaktan push token kaydı ürün kapsamı dışında ve gizlilik gereği yasaklanmış.
+- V1’de hesap, bulut yedekleme/eşitleme ve uzaktan push token kaydı yok. Giriş sonraki aşama olarak kararlaştırıldı; kimlik sağlayıcısı ve lens/reçete verisinin buluta taşınıp taşınmayacağı açık karar bekliyor.
 - Sağlıkla ilişkili lens/reçete kayıtlarının cihaz üzerinde tutulması ürün kuralı olarak belgelenmiş.
 - JSON yedek dışa aktarma ve geri yükleme ekranı bulunuyor. Geri yükleme tüm durum doğrulandıktan sonra kayıtları değiştirecek şekilde tasarlanmış; web dışa aktarması dosya indiriyor.
 - Gizlilik ayarları ve veri yönetimi ekranları mevcut kaynak yapısında yer alıyor.
@@ -84,9 +79,8 @@ Depoda tip kontrolü, birim/akış/görsel testleri, web smoke testi, gizlilik/o
 
 ### Öncelik 1 — Yayınlanacak uygulama hattını kesinleştirme
 
-- Expo ve Flutter ayrı veri tabanlarına sahip iki ayrı uygulama olarak depoda duruyor.
-- Güncel v1/release dokümanları Expo’yu izliyor, fakat ürün sahibi hangi hattı nihai ürün olarak sürdüreceğini açıkça doğrulamalı.
-- Karar sonrası diğer hattın durumu (arşiv, paralel bakım veya kapsam dışı) belgelenmeli; aynı özelliğin iki yerde farklı davranması önlenmeli.
+- Expo / React Native artık tek seçili uygulama hattı; Flutter kaynakları kaldırıldı.
+- Giriş sonraki aşama olarak kararlaştırıldı. Hesabın amacı (cihazlar arası eşitleme, bulut yedeği veya yalnızca hesapla erişim), saklanacak veri ve hesap silme/yerel kullanım davranışı belirlenmeli.
 
 ### Öncelik 2 — Gerçek cihaz kabul testleri
 
@@ -117,7 +111,7 @@ Mevcut native widget altyapısının eski döngü verisini kullandığı ve yeni
 - Native tam yedek dosyası seçme/geri yükleme akışı tamamlanıp cihazda denenmeli.
 - İngilizce arayüz henüz takip işi olarak listelenmiş; mağaza metadatası Türkçe.
 - iOS fiziksel cihaz ve widget kabulü tamamlanmalı. iOS mağaza yayını için imzalı IPA gerekecek.
-- Flutter README’sinde iPhone ve İngilizce 1.2 planı var; bu plan, seçilen ürün hattına göre tekrar karara bağlanmalı.
+- iOS fiziksel cihaz ve widget kabulü tamamlanmalı.
 
 ### Öncelik 6 — Mağazaya hazırlık ve yayın
 
@@ -135,11 +129,10 @@ Mevcut native widget altyapısının eski döngü verisini kullandığı ve yeni
 
 - Lens paket döngüsüne bağlı otomatik lens sipariş aboneliği. Ancak ülke ve tedarikçi kapsamı, fiyat, yasal yükümlülükler ve açık kullanıcı onayı araştırıldıktan sonra ayrı bir ürün kararı olmalı. Bu fikir mevcut v1 teslim kapsamına dahil değil.
 - İki göz için ortak reçete girişi veya farklı reçete/marka/paket seçimi. Aynı değerler paylaşıldığında ortak kurulum; farklıysa göz başına ayrı kurulum gösterilmesi öneriliyor.
-- Eski Flutter yol haritasında ana ekran widget’ı, Play Store imzalama anahtarı (1.1), iPhone, İngilizce ve istatistik (1.2) geçiyor. Expo yol haritasıyla birleştirilmeden önce her maddenin yeniden onaylanması gerekir.
 
 ## 6. Önerilen tamamlanma sırası
 
-1. **Ürün hattı kararı:** Expo mu Flutter mı mağazaya gidecek; mevcut v1 dokümanları Expo’yu işaret ediyor.
+1. **Giriş ve veri mimarisi kararı:** Hesabın amacı, bulut eşitlemesinin kapsamı, yerel kullanım ve hesap silme davranışı; kimlik/veritabanı sağlayıcısı.
 2. **V1 kapsamını dondurma:** Sağ/sol ve reçete senaryoları, kutu yönetimi, yedek/geri yükleme, bildirim ve widget için kabul kriterleri yazma.
 3. **Eksik özellikleri kapatma:** Öncelikle doğru paket verisi kullanan widget, native yedek geri yükleme, göz/reçete akışları ve platform farkları.
 4. **Otomatik doğrulama:** Kaydedilmiş testleri ve yayın kontrolünü seçilen hattın temiz checkout’unda çalıştırıp sonuçları güncelleme.
@@ -150,14 +143,13 @@ Mevcut native widget altyapısının eski döngü verisini kullandığı ve yeni
 
 ## 7. Başka sohbete verilecek kısa proje özeti
 
-> Lensim, kontakt lens kullanımını, değişim süresini, sağ/sol göz paketlerini, günlük takma geçmişini ve stokları cihaz üzerinde takip eden, hesap ve bulut gerektirmeyen bir uygulama. Depoda eski Flutter sürümüyle birlikte güncel geliştirme hattı olan Expo/React Native bulunuyor; ikisinin verileri ayrı. Expo tarafında ilk kurulum, paket ve günlük takip akışları, 02.00 gün sınırı, takvim/geçmiş, yerel bildirim altyapısı, JSON yedekleme ve temel ekranlar geliştirilmiş; otomatik test altyapısı da mevcut. Henüz tamamlanması gereken başlıca işler doğru paket verisini kullanan widget ve widget eylemi, bildirimlerin gerçek cihazda arka plan kabulü, göz/reçete ve native yedek akışlarının son doğrulaması, fiziksel cihaz testleri, yayıncı/gizlilik sayfaları, imzalı Android/iOS derlemeleri ve mağaza yayını. EAS/store yüklemesi veya cihaz kabulü tamamlanmış gibi varsayılmamalı. Önce hangi uygulama hattının nihai ürün olacağı netleştirilmeli; güncel v1 ve release belgeleri Expo hattını esas alıyor.
+> Lensim, kontakt lens kullanımını, değişim süresini, sağ/sol göz paketlerini, günlük takma geçmişini ve stokları takip eden Expo/React Native uygulamasıdır. V1’de native veriler SQLite’ta, web önizlemesi IndexedDB’de yerel tutulur; giriş sonraki aşama olarak kararlaştırılmıştır. Hesabın bulut yedeği/eşitleme sağlayıp sağlamayacağı, veritabanı sağlayıcısı ve veri güvenliği kuralları henüz belirlenmemiştir. İlk kurulum, paket ve günlük takip, 02.00 gün sınırı, takvim/geçmiş, yerel bildirim altyapısı ve JSON yedekleme geliştirilmiş; native geri yükleme, cihaz kabulü, mağaza derlemeleri ve yayın işleri sürmektedir.
 
 ## 8. Bu raporda başvurulan proje belgeleri
 
-- `lens-takip/README.md` — iki uygulama hattı ve çalıştırma bilgileri.
+- `README.md` — Expo uygulamasını çalıştırma.
 - `lens-takip/docs/LENSIM-V1-IMPLEMENTATION.md` — v1’de uygulananlar, gizlilik kuralı, açık işler ve gelecek fikirleri.
 - `lens-takip/docs/UI_UX_REDESIGN_NOTES.md` — reçete ve arayüz için takip notları.
 - `lens-takip/docs/DEVICE_CHECKLIST.md` — cihaz kabul senaryoları ve önceki test kapısı kayıtları.
 - `lens-takip/store/RELEASE.md` — derleme, imza, gizlilik ve yayın adımları.
 - `lens-takip/store/metadata.tr-TR.json` ve `lens-takip/release.config.json` — mağaza metni ve henüz doldurulmamış yayıncı alanları.
-- `lens-takip/lensim_app/README.md` — Flutter hattının özellikleri ve eski sürüm planı.
